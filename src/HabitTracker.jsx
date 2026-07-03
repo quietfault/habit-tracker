@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target } from "lucide-react";
+import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Stats from "./Stats.jsx";
 import Goals from "./Goals.jsx";
@@ -28,6 +28,7 @@ export default function HabitTracker({ session }) {
   const [groups, setGroups] = useState([]);
   const [habits, setHabits] = useState([]);
   const [done, setDone] = useState(new Set());
+  const [links, setLinks] = useState([]); // {id, habit_id, goal_id, stage_id}
   const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState("today");
   const [editing, setEditing] = useState(false);
@@ -47,14 +48,16 @@ export default function HabitTracker({ session }) {
   const persistCollapsed = (s) => localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s]));
 
   const load = useCallback(async () => {
-    const [{ data: gs }, { data: hs }, { data: cs }] = await Promise.all([
+    const [{ data: gs }, { data: hs }, { data: cs }, { data: lk }] = await Promise.all([
       supabase.from("groups").select("*").order("sort_order"),
       supabase.from("habits").select("*").order("sort_order"),
       supabase.from("completions").select("habit_id, day"),
+      supabase.from("goal_habit_links").select("*"),
     ]);
     setGroups(gs || []);
     setHabits(hs || []);
     setDone(new Set((cs || []).map((c) => `${c.habit_id}|${c.day}`)));
+    setLinks(lk || []);
     setLoaded(true);
   }, []);
 
@@ -88,6 +91,26 @@ export default function HabitTracker({ session }) {
   };
   const isWeekly = (h) => (h.target_per_week ?? 7) < 7;
   const isSatisfied = (h) => isWeekly(h) ? countInWeekOf(h.id, now) >= h.target_per_week : done.has(`${h.id}|${today}`);
+
+  // живой прогресс привычки — для показа внутри целей
+  const progressFor = (h) => {
+    if (isWeekly(h)) { const wc = countInWeekOf(h.id, now); return { label: `${wc}/${h.target_per_week} нед`, good: wc >= h.target_per_week }; }
+    const s = streak(h.id);
+    return { label: s > 0 ? `${s} дн. серия` : "нет серии", good: done.has(`${h.id}|${today}`) };
+  };
+
+  // ── связи привычка↔цель/этап ──
+  const linkHabit = async (habitId, { goalId = null, stageId = null }) => {
+    const { data, error } = await supabase.from("goal_habit_links")
+      .insert({ habit_id: habitId, goal_id: goalId, stage_id: stageId }).select().single();
+    if (!error && data) setLinks((l) => [...l, data]);
+  };
+  const unlinkHabit = async (linkId) => {
+    setLinks((l) => l.filter((x) => x.id !== linkId));
+    await supabase.from("goal_habit_links").delete().eq("id", linkId);
+  };
+  const dropLinksByGoal = (goalId) => setLinks((l) => l.filter((x) => x.goal_id !== goalId));
+  const dropLinksByStage = (stageId) => setLinks((l) => l.filter((x) => x.stage_id !== stageId));
 
   const toggle = async (hid, ds) => {
     const key = `${hid}|${ds}`;
@@ -167,8 +190,9 @@ export default function HabitTracker({ session }) {
   const ungrouped = habits.filter((h) => !h.group_id).sort(bySort);
   const hasGroups = groups.length > 0;
 
+  const linkedHabitIds = new Set(links.map((l) => l.habit_id));
   const rowProps = { done, today, days, editing, groups, toggle, removeHabit, setHabitGroup, setHabitTarget,
-    setHabitName, moveHabit, streak, countInWeekOf, weeklyStreak, isWeekly, isSatisfied, now };
+    setHabitName, moveHabit, streak, countInWeekOf, weeklyStreak, isWeekly, isSatisfied, now, linkedHabitIds };
 
   return (
     <div style={{ background: C.bg, color: C.text, minHeight: "100%" }}>
@@ -200,7 +224,9 @@ export default function HabitTracker({ session }) {
         </div>
 
         {view === "goals" ? (
-          <Goals />
+          <Goals habits={habits} links={links} progressFor={progressFor}
+            linkHabit={linkHabit} unlinkHabit={unlinkHabit}
+            dropLinksByGoal={dropLinksByGoal} dropLinksByStage={dropLinksByStage} />
         ) : view === "stats" ? (
           <Stats habits={habits} done={done} groups={groups} />
         ) : (
@@ -310,7 +336,8 @@ export default function HabitTracker({ session }) {
   );
 }
 
-function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, setHabitGroup, setHabitTarget, setHabitName, moveHabit, streak, countInWeekOf, weeklyStreak, isWeekly, isSatisfied, now, canUp, canDown }) {
+function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, setHabitGroup, setHabitTarget, setHabitName, moveHabit, streak, countInWeekOf, weeklyStreak, isWeekly, isSatisfied, now, canUp, canDown, linkedHabitIds }) {
+  const unlinked = linkedHabitIds && !linkedHabitIds.has(h.id);
   const weekly = isWeekly(h);
   const satisfied = isSatisfied(h);
   const todayDone = done.has(`${h.id}|${today}`);
@@ -324,6 +351,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: met ? C.goldHot : C.muted, fontVariantNumeric: "tabular-nums" }}>{wc}/{h.target_per_week} на неделе</span>
         {ws > 0 && <><Flame size={12} color={C.gold} /><span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{ws} нед</span></>}
+        {unlinked && <Unlink size={11} color={C.faint} />}
       </div>
     );
   } else {
@@ -333,6 +361,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
         <Flame size={13} color={hot ? C.goldHot : s > 0 ? C.gold : C.faint} fill={hot ? C.goldHot : "none"} />
         <span style={{ fontSize: 12, color: s > 0 ? C.muted : C.faint, fontVariantNumeric: "tabular-nums" }}>{s > 0 ? `${s} дн.` : "нет серии"}</span>
+        {unlinked && <Unlink size={11} color={C.faint} />}
       </div>
     );
   }

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, Trash2, Pencil, X, ChevronDown, ChevronRight, FolderPlus,
-  Circle, CircleDot, CheckCircle2, ArrowUp, ArrowDown, Calendar,
+  Circle, CircleDot, CheckCircle2, ArrowUp, ArrowDown, Calendar, Link2, Unlink,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -32,7 +32,33 @@ function StatusIcon({ status, size = 20 }) {
   return <Circle size={size} color={C.faint} />;
 }
 
-export default function Goals() {
+function ProgressChip({ habit, progress }) {
+  const good = progress?.good;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 999, fontSize: 11.5, background: good ? C.gold + "1F" : C.surface2, border: `1px solid ${good ? C.gold + "55" : C.line}`, color: C.text, maxWidth: "100%" }}>
+      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 130 }}>{habit.name}</span>
+      <span style={{ color: good ? C.goldHot : C.muted, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{progress?.label}</span>
+    </span>
+  );
+}
+
+function HabitPicker({ habits, isLinked, onToggle }) {
+  if (!habits.length) return <div style={{ fontSize: 12, color: C.faint }}>Сначала добавь привычки во вкладке «Сегодня».</div>;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {habits.map((h) => {
+        const on = isLinked(h.id);
+        return (
+          <button key={h.id} onClick={() => onToggle(h.id)} style={{ padding: "4px 9px", borderRadius: 999, fontSize: 12, cursor: "pointer", border: `1px solid ${on ? C.gold : C.line}`, background: on ? C.gold + "22" : "transparent", color: on ? C.goldHot : C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            {on ? <Link2 size={11} /> : null}{h.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function Goals({ habits = [], links = [], progressFor, linkHabit, unlinkHabit, dropLinksByGoal, dropLinksByStage }) {
   const [groups, setGroups] = useState([]);
   const [goals, setGoals] = useState([]);
   const [stages, setStages] = useState([]);
@@ -54,6 +80,7 @@ export default function Goals() {
   const [stageDraft, setStageDraft] = useState("");
 
   const persistCollapsed = (s) => localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s]));
+  const habitsById = useMemo(() => Object.fromEntries(habits.map((h) => [h.id, h])), [habits]);
 
   const load = useCallback(async () => {
     const [{ data: gg }, { data: gs }, { data: st }] = await Promise.all([
@@ -71,8 +98,18 @@ export default function Goals() {
   }, [load]);
 
   const stagesFor = (goalId) => stages.filter((s) => s.goal_id === goalId).sort(bySort);
+  const linksForGoal = (goalId) => links.filter((l) => l.goal_id === goalId);
+  const linksForStage = (stageId) => links.filter((l) => l.stage_id === stageId);
+  const toggleGoalLink = (goalId, habitId) => {
+    const ex = links.find((l) => l.goal_id === goalId && l.habit_id === habitId);
+    ex ? unlinkHabit(ex.id) : linkHabit(habitId, { goalId });
+  };
+  const toggleStageLink = (stageId, habitId) => {
+    const ex = links.find((l) => l.stage_id === stageId && l.habit_id === habitId);
+    ex ? unlinkHabit(ex.id) : linkHabit(habitId, { stageId });
+  };
 
-  // ── group mutations ──
+  // group mutations
   const addGroup = async () => {
     const name = groupDraft.trim(); if (!name) return;
     setGroupDraft(""); setAddingGroup(false);
@@ -93,7 +130,7 @@ export default function Goals() {
   const anyCollapsed = allGroupIds.some((id) => collapsed.has(id));
   const toggleAll = () => { const n = anyCollapsed ? new Set() : new Set(allGroupIds); setCollapsed(n); persistCollapsed(n); };
 
-  // ── goal mutations ──
+  // goal mutations
   const addGoal = async () => {
     const name = draftName.trim(); if (!name) return;
     setDraftName(""); setDraftDate(""); setAdding(false);
@@ -106,20 +143,12 @@ export default function Goals() {
   const removeGoal = async (id) => {
     setGoals((g) => g.filter((x) => x.id !== id));
     setStages((s) => s.filter((x) => x.goal_id !== id));
+    dropLinksByGoal?.(id);
     await supabase.from("goals").delete().eq("id", id);
   };
-  const setGoalName = async (id, name) => {
-    setGoals((g) => g.map((x) => (x.id === id ? { ...x, name } : x)));
-    await supabase.from("goals").update({ name }).eq("id", id);
-  };
-  const setGoalDate = async (id, date) => {
-    setGoals((g) => g.map((x) => (x.id === id ? { ...x, target_date: date || null } : x)));
-    await supabase.from("goals").update({ target_date: date || null }).eq("id", id);
-  };
-  const setGoalGroup = async (id, groupId) => {
-    setGoals((g) => g.map((x) => (x.id === id ? { ...x, group_id: groupId } : x)));
-    await supabase.from("goals").update({ group_id: groupId }).eq("id", id);
-  };
+  const setGoalName = async (id, name) => { setGoals((g) => g.map((x) => (x.id === id ? { ...x, name } : x))); await supabase.from("goals").update({ name }).eq("id", id); };
+  const setGoalDate = async (id, date) => { setGoals((g) => g.map((x) => (x.id === id ? { ...x, target_date: date || null } : x))); await supabase.from("goals").update({ target_date: date || null }).eq("id", id); };
+  const setGoalGroup = async (id, groupId) => { setGoals((g) => g.map((x) => (x.id === id ? { ...x, group_id: groupId } : x))); await supabase.from("goals").update({ group_id: groupId }).eq("id", id); };
   const setGoalStatus = async (id, status) => {
     setGoals((g) => g.map((x) => (x.id === id ? { ...x, status } : x)));
     await supabase.from("goals").update({ status }).eq("id", id);
@@ -138,7 +167,7 @@ export default function Goals() {
     ]);
   };
 
-  // ── stage mutations ──
+  // stage mutations
   const addStage = async (goalId) => {
     const name = stageDraft.trim(); if (!name) return;
     setStageDraft(""); setAddingStageFor(null);
@@ -146,11 +175,8 @@ export default function Goals() {
     const { data, error } = await supabase.from("goal_stages").insert({ goal_id: goalId, name, status: "not_started", sort_order: cnt }).select().single();
     if (!error && data) { setStages((s) => [...s, data]); setExpanded((prev) => new Set(prev).add(goalId)); }
   };
-  const removeStage = async (id) => { setStages((s) => s.filter((x) => x.id !== id)); await supabase.from("goal_stages").delete().eq("id", id); };
-  const setStageName = async (id, name) => {
-    setStages((s) => s.map((x) => (x.id === id ? { ...x, name } : x)));
-    await supabase.from("goal_stages").update({ name }).eq("id", id);
-  };
+  const removeStage = async (id) => { setStages((s) => s.filter((x) => x.id !== id)); dropLinksByStage?.(id); await supabase.from("goal_stages").delete().eq("id", id); };
+  const setStageName = async (id, name) => { setStages((s) => s.map((x) => (x.id === id ? { ...x, name } : x))); await supabase.from("goal_stages").update({ name }).eq("id", id); };
   const cycleStageStatus = async (stage) => {
     const st = next(stage.status);
     setStages((s) => s.map((x) => (x.id === stage.id ? { ...x, status: st } : x)));
@@ -173,8 +199,9 @@ export default function Goals() {
   const ungrouped = goals.filter((g) => !g.group_id).sort(bySort);
   const hasGroups = groups.length > 0;
 
-  const goalRowProps = {
-    editing, groups, stagesFor, setGoalName, setGoalDate, setGoalGroup, cycleGoalStatus, setGoalStatus, removeGoal, moveGoal,
+  const rp = {
+    editing, groups, habits, habitsById, progressFor, stagesFor, linksForGoal, linksForStage, toggleGoalLink, toggleStageLink,
+    setGoalName, setGoalDate, setGoalGroup, cycleGoalStatus, setGoalStatus, removeGoal, moveGoal,
     addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage, cycleStageStatus, setStageName, moveStage,
     expanded, toggleExpand, dismissed, setDismissed,
   };
@@ -182,9 +209,7 @@ export default function Goals() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
-        {hasGroups && (
-          <button onClick={toggleAll} style={iconBtn(C.muted)}>{anyCollapsed ? "Развернуть всё" : "Свернуть всё"}</button>
-        )}
+        {hasGroups && <button onClick={toggleAll} style={iconBtn(C.muted)}>{anyCollapsed ? "Развернуть всё" : "Свернуть всё"}</button>}
         <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.gold : C.muted)}>
           {editing ? <X size={13} /> : <Pencil size={13} />} {editing ? "Готово" : "Править"}
         </button>
@@ -220,7 +245,7 @@ export default function Goals() {
             {!isCol && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {items.length === 0 && <div style={{ fontSize: 13, color: C.faint, paddingLeft: 22 }}>пусто</div>}
-                {items.map((goal, i) => <GoalRow key={goal.id} goal={goal} canUp={i > 0} canDown={i < items.length - 1} {...goalRowProps} />)}
+                {items.map((goal, i) => <GoalRow key={goal.id} goal={goal} canUp={i > 0} canDown={i < items.length - 1} {...rp} />)}
               </div>
             )}
           </div>
@@ -231,7 +256,7 @@ export default function Goals() {
         <div style={{ marginBottom: 14 }}>
           {hasGroups && <div style={{ fontWeight: 600, fontSize: 14, color: C.muted, padding: "4px 2px 8px 22px" }}>Без группы</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {ungrouped.map((goal, i) => <GoalRow key={goal.id} goal={goal} canUp={i > 0} canDown={i < ungrouped.length - 1} {...goalRowProps} />)}
+            {ungrouped.map((goal, i) => <GoalRow key={goal.id} goal={goal} canUp={i > 0} canDown={i < ungrouped.length - 1} {...rp} />)}
           </div>
         </div>
       )}
@@ -267,16 +292,15 @@ export default function Goals() {
           <button onClick={() => setAddingGroup(true)} style={{ ...dashedBtn(), marginTop: 8 }}><FolderPlus size={16} /> Новая группа</button>
         )
       )}
-
-      {goals.length === 0 && adding === false && groups.length === 0 && null}
     </div>
   );
 }
 
 function GoalRow({
-  goal, canUp, canDown, editing, groups, stagesFor, setGoalName, setGoalDate, setGoalGroup, cycleGoalStatus, setGoalStatus,
-  removeGoal, moveGoal, addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage, cycleStageStatus,
-  setStageName, moveStage, expanded, toggleExpand, dismissed, setDismissed,
+  goal, canUp, canDown, editing, groups, habits, habitsById, progressFor, stagesFor, linksForGoal, linksForStage,
+  toggleGoalLink, toggleStageLink, setGoalName, setGoalDate, setGoalGroup, cycleGoalStatus, setGoalStatus,
+  removeGoal, moveGoal, addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage,
+  cycleStageStatus, setStageName, moveStage, expanded, toggleExpand, dismissed, setDismissed,
 }) {
   const st = stagesFor(goal.id);
   const hasStages = st.length > 0;
@@ -284,6 +308,11 @@ function GoalRow({
   const overdue = goal.target_date && goal.status !== "done" && goal.target_date < TODAY;
   const allStagesDone = hasStages && st.every((s) => s.status === "done");
   const showPrompt = allStagesDone && goal.status !== "done" && !dismissed.has(goal.id);
+
+  const goalLinks = linksForGoal(goal.id);
+  const goalHabits = goalLinks.map((l) => habitsById[l.habit_id]).filter(Boolean);
+  const stageLinkCount = st.reduce((n, s) => n + linksForStage(s.id).length, 0);
+  const bare = goalLinks.length === 0 && stageLinkCount === 0;
 
   return (
     <div style={{ borderRadius: 16, background: C.surface, border: `1px solid ${goal.status === "done" ? C.gold + "55" : C.line}`, overflow: "hidden" }}>
@@ -308,6 +337,10 @@ function GoalRow({
               <button onClick={() => moveGoal(goal, 1)} disabled={!canDown} aria-label="Ниже" style={miniBtn(!canDown)}><ArrowDown size={15} /></button>
               <button onClick={() => removeGoal(goal.id)} aria-label="Удалить" style={{ padding: 7, borderRadius: 9, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={15} /></button>
             </div>
+            <div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 5 }}>Привычки цели:</div>
+              <HabitPicker habits={habits} isLinked={(hid) => goalLinks.some((l) => l.habit_id === hid)} onToggle={(hid) => toggleGoalLink(goal.id, hid)} />
+            </div>
           </div>
         ) : (
           <div style={{ minWidth: 0, flex: 1, cursor: hasStages ? "pointer" : "default" }} onClick={() => hasStages && toggleExpand(goal.id)}>
@@ -319,11 +352,8 @@ function GoalRow({
                   <Calendar size={11} /> {fmtDate(goal.target_date)}
                 </span>
               )}
-              {hasStages && (
-                <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>
-                  {st.filter((s) => s.status === "done").length}/{st.length} этапов
-                </span>
-              )}
+              {hasStages && <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{st.filter((s) => s.status === "done").length}/{st.length} этапов</span>}
+              {bare && <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, color: C.faint }}><Unlink size={11} /> нет привычек</span>}
             </div>
           </div>
         )}
@@ -334,6 +364,13 @@ function GoalRow({
           </button>
         )}
       </div>
+
+      {/* живой прогресс привычек цели (view mode) */}
+      {!editing && goalHabits.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 12px 12px 48px" }}>
+          {goalHabits.map((h) => <ProgressChip key={h.id} habit={h} progress={progressFor?.(h)} />)}
+        </div>
+      )}
 
       {showPrompt && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", background: C.gold + "18", borderTop: `1px solid ${C.gold}33` }}>
@@ -346,27 +383,45 @@ function GoalRow({
       )}
 
       {(isExp || editing) && (
-        <div style={{ padding: "10px 12px 12px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 8 }}>
-          {st.map((s, i) => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button onClick={() => cycleStageStatus(s)} aria-label="Статус этапа" style={{ flexShrink: 0, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
-                <StatusIcon status={s.status} size={17} />
-              </button>
-              {editing ? (
-                <>
-                  <input className="ht-input" defaultValue={s.name}
-                    onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.name) setStageName(s.id, v); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                    style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 8px", color: C.text, fontSize: 13 }} />
-                  <button onClick={() => moveStage(s, -1)} disabled={i === 0} aria-label="Выше" style={miniBtn(i === 0)}><ArrowUp size={13} /></button>
-                  <button onClick={() => moveStage(s, 1)} disabled={i === st.length - 1} aria-label="Ниже" style={miniBtn(i === st.length - 1)}><ArrowDown size={13} /></button>
-                  <button onClick={() => removeStage(s.id)} aria-label="Удалить этап" style={{ padding: 6, borderRadius: 8, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={13} /></button>
-                </>
-              ) : (
-                <span style={{ fontSize: 13, color: s.status === "done" ? C.muted : C.text, textDecoration: s.status === "done" ? "line-through" : "none" }}>{s.name}</span>
-              )}
-            </div>
-          ))}
+        <div style={{ padding: "10px 12px 12px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 10 }}>
+          {st.map((s, i) => {
+            const sLinks = linksForStage(s.id);
+            const sHabits = sLinks.map((l) => habitsById[l.habit_id]).filter(Boolean);
+            return (
+              <div key={s.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => cycleStageStatus(s)} aria-label="Статус этапа" style={{ flexShrink: 0, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                    <StatusIcon status={s.status} size={17} />
+                  </button>
+                  {editing ? (
+                    <>
+                      <input className="ht-input" defaultValue={s.name}
+                        onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.name) setStageName(s.id, v); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 8px", color: C.text, fontSize: 13 }} />
+                      <button onClick={() => moveStage(s, -1)} disabled={i === 0} aria-label="Выше" style={miniBtn(i === 0)}><ArrowUp size={13} /></button>
+                      <button onClick={() => moveStage(s, 1)} disabled={i === st.length - 1} aria-label="Ниже" style={miniBtn(i === st.length - 1)}><ArrowDown size={13} /></button>
+                      <button onClick={() => removeStage(s.id)} aria-label="Удалить этап" style={{ padding: 6, borderRadius: 8, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={13} /></button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 13, color: s.status === "done" ? C.muted : C.text, textDecoration: s.status === "done" ? "line-through" : "none" }}>{s.name}</span>
+                  )}
+                </div>
+
+                {editing ? (
+                  <div style={{ paddingLeft: 25 }}>
+                    <HabitPicker habits={habits} isLinked={(hid) => sLinks.some((l) => l.habit_id === hid)} onToggle={(hid) => toggleStageLink(s.id, hid)} />
+                  </div>
+                ) : (
+                  sHabits.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, paddingLeft: 25 }}>
+                      {sHabits.map((h) => <ProgressChip key={h.id} habit={h} progress={progressFor?.(h)} />)}
+                    </div>
+                  )
+                )}
+              </div>
+            );
+          })}
 
           {addingStageFor === goal.id ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
