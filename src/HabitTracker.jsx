@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink } from "lucide-react";
+import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink, ListTodo } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Stats from "./Stats.jsx";
 import Goals from "./Goals.jsx";
+import Tasks from "./Tasks.jsx";
 
 const C = {
   bg: "#131319", surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
@@ -217,13 +218,16 @@ export default function HabitTracker({ session }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: C.surface, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: C.surface, marginBottom: 20, overflowX: "auto" }}>
           <SegBtn active={view === "today"} onClick={() => setView("today")} icon={<ListChecks size={15} />} label="Сегодня" />
-          <SegBtn active={view === "stats"} onClick={() => setView("stats")} icon={<BarChart3 size={15} />} label="Статистика" />
+          <SegBtn active={view === "tasks"} onClick={() => setView("tasks")} icon={<ListTodo size={15} />} label="Задачи" />
           <SegBtn active={view === "goals"} onClick={() => setView("goals")} icon={<Target size={15} />} label="Цели" />
+          <SegBtn active={view === "stats"} onClick={() => setView("stats")} icon={<BarChart3 size={15} />} label="Статистика" />
         </div>
 
-        {view === "goals" ? (
+        {view === "tasks" ? (
+          <Tasks />
+        ) : view === "goals" ? (
           <Goals habits={habits} links={links} progressFor={progressFor}
             linkHabit={linkHabit} unlinkHabit={unlinkHabit}
             dropLinksByGoal={dropLinksByGoal} dropLinksByStage={dropLinksByStage} />
@@ -414,7 +418,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
 }
 
 function SegBtn({ active, onClick, icon, label }) {
-  return <button onClick={onClick} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", borderRadius: 9, fontSize: 14, fontWeight: 500, cursor: "pointer", border: "none", background: active ? C.surface2 : "transparent", color: active ? C.text : C.muted }}>{icon} {label}</button>;
+  return <button onClick={onClick} style={{ flex: "1 0 auto", whiteSpace: "nowrap", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 12px", borderRadius: 9, fontSize: 13.5, fontWeight: 500, cursor: "pointer", border: "none", background: active ? C.surface2 : "transparent", color: active ? C.text : C.muted }}>{icon} {label}</button>;
 }
 function iconBtn(color) { return { display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, padding: "5px 8px", borderRadius: 8, color, background: "transparent", border: "none", cursor: "pointer" }; }
 function miniBtn(disabled) { return { padding: 7, borderRadius: 9, color: disabled ? C.faint : C.text, background: C.surface2, border: `1px solid ${C.line}`, cursor: disabled ? "default" : "pointer", display: "flex", opacity: disabled ? 0.5 : 1 }; }
