@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ResponsiveContainer, AreaChart, Area, LineChart, Line, Legend, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ChevronDown, ChevronRight, ArrowLeft, Activity } from "lucide-react";
 
 const C = {
   surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
@@ -14,12 +14,15 @@ const monday = (d) => { const x = new Date(d); x.setHours(0,0,0,0); const w = (x
 const rangeDays = (n) => [...Array(n)].map((_, i) => addDays(new Date(), -(n - 1 - i)));
 const PERIODS = [{ n: 7, label: "7 дней" }, { n: 30, label: "30 дней" }, { n: 90, label: "90 дней" }];
 const NONE = "__none__";
+const LINE_COLORS = ["#F5B544", "#5AA9E6", "#E0656B", "#5FD0A6", "#C08CF0", "#EDA34A", "#6EE7E7", "#F58AC0", "#A0D468", "#B0B0C0"];
 
 export default function Stats({ habits, done, groups }) {
   const [period, setPeriod] = useState(30);
   const hasUngrouped = habits.some((h) => !h.group_id);
   const [active, setActive] = useState(() => new Set([...groups.map((g) => g.id), NONE]));
-  const [expanded, setExpanded] = useState(() => new Set());
+  const [focused, setFocused] = useState(null);   // ключ группы, в которую «провалились»
+  const [showChart, setShowChart] = useState(false);
+  const [metric, setMetric] = useState("cum");    // cum | roll7
 
   const days = useMemo(() => rangeDays(period), [period]);
   const today = ymd(new Date());
@@ -41,7 +44,25 @@ export default function Stats({ habits, done, groups }) {
   const activeHabits = habits.filter((h) => active.has(keyOf(h)));
 
   const toggleActive = (k) => setActive((prev) => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const toggleExp = (k) => setExpanded((prev) => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const focus = (k) => { setFocused((prev) => (prev === k ? null : k)); setShowChart(false); };
+
+  // данные линейного графика для набора привычек
+  const buildChartData = (items) => days.map((d, i) => {
+    const point = { date: `${d.getDate()}.${d.getMonth() + 1}` };
+    items.forEach((h) => {
+      if (metric === "cum") {
+        let dn = 0;
+        for (let k = 0; k <= i; k++) if (isDone(h.id, ymd(days[k]))) dn++;
+        const perDay = isWeekly(h) ? h.target_per_week / 7 : 1;
+        point[h.id] = Math.min(100, Math.round((dn / ((i + 1) * perDay)) * 100));
+      } else {
+        let c = 0;
+        for (let k = 0; k < 7; k++) if (isDone(h.id, ymd(addDays(d, -k)))) c++;
+        point[h.id] = c;
+      }
+    });
+    return point;
+  });
 
   // верхний график — по активным привычкам (как в v3: недельная закрыта = вся неделя)
   const daily = days.map((d) => {
@@ -75,7 +96,7 @@ export default function Stats({ habits, done, groups }) {
       </div>
 
       {/* фильтр по группам */}
-      {filterChips.length > 1 && (
+      {filterChips.length > 1 && !focused && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
           {filterChips.map((c) => {
             const on = active.has(c.key);
@@ -108,10 +129,10 @@ export default function Stats({ habits, done, groups }) {
             </ResponsiveContainer>
           </div>
 
-          {/* хитмап по группам */}
+          {/* хитмап по группам (с режимом «провалиться внутрь») */}
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-            {blocks.filter((b) => active.has(b.key)).map((b) => {
-              const isExp = expanded.has(b.key);
+            {(focused ? blocks.filter((b) => b.key === focused && active.has(b.key)) : blocks.filter((b) => active.has(b.key))).map((b) => {
+              const isFocused = focused === b.key;
               const groupAvg = b.items.length ? Math.round(b.items.reduce((s, h) => s + adherence(h), 0) / b.items.length) : 0;
               const aggValue = (d) => {
                 if (!b.items.length) return 0;
@@ -119,17 +140,46 @@ export default function Stats({ habits, done, groups }) {
                 return hit / b.items.length;
               };
               return (
-                <div key={b.key} style={card()}>
-                  <button onClick={() => toggleExp(b.key)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0, marginBottom: 10 }}>
-                    {isExp ? <ChevronDown size={16} color={C.muted} /> : <ChevronRight size={16} color={C.muted} />}
-                    <span style={{ fontWeight: 600, fontSize: 14, color: C.text, flex: 1, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.name}</span>
-                    <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{groupAvg}% · {b.items.length}</span>
-                  </button>
+                <div key={b.key} style={{ ...card(), ...(isFocused ? { background: C.surface2, border: `1px solid ${C.gold}55` } : null) }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <button onClick={() => focus(b.key)} style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, background: isFocused ? C.gold + "14" : "transparent", border: "none", cursor: "pointer", padding: "6px 8px", margin: "-6px -8px", borderRadius: 8 }}>
+                      {isFocused ? <ArrowLeft size={16} color={C.gold} /> : <ChevronRight size={16} color={C.muted} />}
+                      <span style={{ fontWeight: 600, fontSize: 14, color: isFocused ? C.goldHot : C.text, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{b.name}</span>
+                      <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{groupAvg}% · {b.items.length}</span>
+                    </button>
+                    {isFocused && b.items.length > 0 && (
+                      <button onClick={() => setShowChart((s) => !s)} title="График по привычкам" style={{ flexShrink: 0, padding: 7, borderRadius: 9, cursor: "pointer", border: `1px solid ${showChart ? C.gold : C.line}`, background: showChart ? C.gold + "22" : "transparent", color: showChart ? C.goldHot : C.muted, display: "flex" }}>
+                        <Activity size={16} />
+                      </button>
+                    )}
+                  </div>
 
                   <HeatGrid days={days} period={period} today={today} valueFor={aggValue} />
 
-                  {isExp && (
+                  {isFocused && (
                     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12, borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
+                      {showChart && b.items.length > 0 && (
+                        <div>
+                          <div style={{ display: "flex", gap: 4, padding: 3, borderRadius: 9, background: C.surface, border: `1px solid ${C.line}`, marginBottom: 10, width: "fit-content" }}>
+                            {[{ k: "cum", l: "Накопительный %" }, { k: "roll7", l: "За 7 дней" }].map((m) => (
+                              <button key={m.k} onClick={() => setMetric(m.k)} style={{ padding: "5px 10px", borderRadius: 7, fontSize: 12, fontWeight: 500, border: "none", cursor: "pointer", background: metric === m.k ? C.surface2 : "transparent", color: metric === m.k ? C.text : C.muted }}>{m.l}</button>
+                            ))}
+                          </div>
+                          <ResponsiveContainer width="100%" height={230}>
+                            <LineChart data={buildChartData(b.items)} margin={{ left: -16, right: 8, top: 4, bottom: 4 }}>
+                              <CartesianGrid stroke={C.line} vertical={false} />
+                              <XAxis dataKey="date" tick={{ fill: C.muted, fontSize: 10 }} stroke={C.line} interval="preserveStartEnd" minTickGap={24} />
+                              <YAxis domain={metric === "cum" ? [0, 100] : [0, 7]} tick={{ fill: C.muted, fontSize: 11 }} stroke={C.line} unit={metric === "cum" ? "%" : ""} width={metric === "cum" ? 38 : 26} />
+                              <Tooltip contentStyle={tooltip()} formatter={(v, n) => [metric === "cum" ? `${v}%` : v, n]} />
+                              <Legend wrapperStyle={{ fontSize: 11 }} />
+                              {b.items.map((h, idx) => (
+                                <Line key={h.id} type="monotone" dataKey={h.id} name={h.name} stroke={LINE_COLORS[idx % LINE_COLORS.length]} strokeWidth={2} dot={false} connectNulls />
+                              ))}
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+
                       {b.items.length === 0 && <div style={{ fontSize: 13, color: C.faint }}>пусто</div>}
                       {b.items.map((h) => (
                         <div key={h.id}>
