@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink, ListTodo } from "lucide-react";
+import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink, ListTodo, History } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Stats from "./Stats.jsx";
 import Goals from "./Goals.jsx";
 import Tasks from "./Tasks.jsx";
+import Feed from "./Feed.jsx";
 
 const C = {
   bg: "#131319", surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
@@ -222,11 +223,14 @@ export default function HabitTracker({ session }) {
           <SegBtn active={view === "today"} onClick={() => setView("today")} icon={<ListChecks size={15} />} label="Сегодня" />
           <SegBtn active={view === "tasks"} onClick={() => setView("tasks")} icon={<ListTodo size={15} />} label="Задачи" />
           <SegBtn active={view === "goals"} onClick={() => setView("goals")} icon={<Target size={15} />} label="Цели" />
+          <SegBtn active={view === "feed"} onClick={() => setView("feed")} icon={<History size={15} />} label="Лента" />
           <SegBtn active={view === "stats"} onClick={() => setView("stats")} icon={<BarChart3 size={15} />} label="Статистика" />
         </div>
 
         {view === "tasks" ? (
           <Tasks />
+        ) : view === "feed" ? (
+          <Feed />
         ) : view === "goals" ? (
           <Goals habits={habits} links={links} progressFor={progressFor}
             linkHabit={linkHabit} unlinkHabit={unlinkHabit}

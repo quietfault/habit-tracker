@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, Trash2, Pencil, X, ChevronDown, ChevronRight, FolderPlus,
-  Circle, CircleDot, CheckCircle2, ArrowUp, ArrowDown, Calendar, Link2, Unlink,
+  Circle, CircleDot, CheckCircle2, ArrowUp, ArrowDown, Calendar, Link2, Unlink, History,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { EventLine } from "./events.jsx";
 
 const C = {
   bg: "#131319", surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
@@ -69,6 +70,10 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
   });
   const [expanded, setExpanded] = useState(() => new Set());
   const [dismissed, setDismissed] = useState(() => new Set());
+  const [events, setEvents] = useState([]);
+  const [histOpen, setHistOpen] = useState(() => new Set());
+  const [modal, setModal] = useState(null); // { title, placeholder, confirmLabel, skip, destructive, onResolve }
+  const [reasonText, setReasonText] = useState("");
 
   const [adding, setAdding] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -83,12 +88,13 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
   const habitsById = useMemo(() => Object.fromEntries(habits.map((h) => [h.id, h])), [habits]);
 
   const load = useCallback(async () => {
-    const [{ data: gg }, { data: gs }, { data: st }] = await Promise.all([
+    const [{ data: gg }, { data: gs }, { data: st }, { data: ev }] = await Promise.all([
       supabase.from("goal_groups").select("*").order("sort_order"),
       supabase.from("goals").select("*").order("sort_order"),
       supabase.from("goal_stages").select("*").order("sort_order"),
+      supabase.from("goal_events").select("*").order("created_at", { ascending: false }),
     ]);
-    setGroups(gg || []); setGoals(gs || []); setStages(st || []); setLoaded(true);
+    setGroups(gg || []); setGoals(gs || []); setStages(st || []); setEvents(ev || []); setLoaded(true);
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -98,6 +104,19 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
   }, [load]);
 
   const stagesFor = (goalId) => stages.filter((s) => s.goal_id === goalId).sort(bySort);
+
+  // ── история событий ──
+  const logEvent = async ({ goalId = null, goalName, kind, detail = null, reason = null }) => {
+    const { data, error } = await supabase.from("goal_events")
+      .insert({ goal_id: goalId, goal_name: goalName, kind, detail, reason: reason || null }).select().single();
+    if (!error && data) setEvents((e) => [data, ...e]);
+  };
+  const eventsForGoal = (goalId) => events.filter((e) => e.goal_id === goalId);
+  const toggleHist = (goalId) => setHistOpen((prev) => { const n = new Set(prev); n.has(goalId) ? n.delete(goalId) : n.add(goalId); return n; });
+  // открыть модалку причины. onResolve(reason) — строка (в т.ч. пустая); null = отмена
+  const askReason = ({ title, confirmLabel = "Сохранить", skip = true, destructive = false, onResolve }) => {
+    setReasonText(""); setModal({ title, confirmLabel, skip, destructive, onResolve });
+  };
   const linksForGoal = (goalId) => links.filter((l) => l.goal_id === goalId);
   const linksForStage = (stageId) => links.filter((l) => l.stage_id === stageId);
   const toggleGoalLink = (goalId, habitId) => {
@@ -138,23 +157,49 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
     const { data, error } = await supabase.from("goals")
       .insert({ name, target_date: draftDate || null, group_id: draftGroup || null, status: "not_started", sort_order: maxSort + 1 })
       .select().single();
-    if (!error && data) setGoals((g) => [...g, data]);
+    if (!error && data) { setGoals((g) => [...g, data]); logEvent({ goalId: data.id, goalName: name, kind: "created", detail: "цель создана" }); }
   };
-  const removeGoal = async (id) => {
+  const doRemoveGoal = async (id) => {
     setGoals((g) => g.filter((x) => x.id !== id));
     setStages((s) => s.filter((x) => x.goal_id !== id));
     dropLinksByGoal?.(id);
     await supabase.from("goals").delete().eq("id", id);
   };
+  const requestDeleteGoal = (goal) => {
+    askReason({
+      title: `Удалить цель «${goal.name}»?`, confirmLabel: "Удалить", skip: false, destructive: true,
+      onResolve: (reason) => {
+        if (reason === null) return; // отмена
+        logEvent({ goalId: goal.id, goalName: goal.name, kind: "deleted", detail: "цель удалена", reason });
+        doRemoveGoal(goal.id);
+      },
+    });
+  };
   const setGoalName = async (id, name) => { setGoals((g) => g.map((x) => (x.id === id ? { ...x, name } : x))); await supabase.from("goals").update({ name }).eq("id", id); };
-  const setGoalDate = async (id, date) => { setGoals((g) => g.map((x) => (x.id === id ? { ...x, target_date: date || null } : x))); await supabase.from("goals").update({ target_date: date || null }).eq("id", id); };
+  const applyGoalDate = async (id, date) => { setGoals((g) => g.map((x) => (x.id === id ? { ...x, target_date: date || null } : x))); await supabase.from("goals").update({ target_date: date || null }).eq("id", id); };
+  const changeGoalDate = (goal, date) => {
+    const old = goal.target_date || null;
+    const nw = date || null;
+    if (old === nw) return;
+    applyGoalDate(goal.id, nw);
+    const detail = old ? `срок: ${fmtDate(old)} → ${nw ? fmtDate(nw) : "снят"}` : `срок задан: ${fmtDate(nw)}`;
+    askReason({ title: "Причина сдвига срока", onResolve: (reason) => logEvent({ goalId: goal.id, goalName: goal.name, kind: "due", detail, reason: reason || "" }) });
+  };
   const setGoalGroup = async (id, groupId) => { setGoals((g) => g.map((x) => (x.id === id ? { ...x, group_id: groupId } : x))); await supabase.from("goals").update({ group_id: groupId }).eq("id", id); };
-  const setGoalStatus = async (id, status) => {
+  const applyGoalStatus = async (id, status) => {
     setGoals((g) => g.map((x) => (x.id === id ? { ...x, status } : x)));
     await supabase.from("goals").update({ status }).eq("id", id);
     setDismissed((p) => new Set(p).add(id));
   };
-  const cycleGoalStatus = (goal) => setGoalStatus(goal.id, next(goal.status));
+  const changeGoalStatus = (goal, status) => {
+    applyGoalStatus(goal.id, status);
+    if (status === "done") {
+      askReason({ title: `Цель «${goal.name}» выполнена`, onResolve: (reason) => logEvent({ goalId: goal.id, goalName: goal.name, kind: "status", detail: "выполнена", reason: reason || "" }) });
+    } else {
+      logEvent({ goalId: goal.id, goalName: goal.name, kind: "status", detail: status === "in_progress" ? "в работе" : "снова не начата" });
+    }
+  };
+  const cycleGoalStatus = (goal) => changeGoalStatus(goal, next(goal.status));
   const moveGoal = async (goal, dir) => {
     const sibs = goals.filter((x) => (x.group_id || null) === (goal.group_id || null)).sort(bySort);
     const i = sibs.findIndex((x) => x.id === goal.id); const j = i + dir;
@@ -168,19 +213,28 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
   };
 
   // stage mutations
+  const goalNameOf = (goalId) => goals.find((g) => g.id === goalId)?.name || "цель";
   const addStage = async (goalId) => {
     const name = stageDraft.trim(); if (!name) return;
     setStageDraft(""); setAddingStageFor(null);
     const cnt = stagesFor(goalId).length;
     const { data, error } = await supabase.from("goal_stages").insert({ goal_id: goalId, name, status: "not_started", sort_order: cnt }).select().single();
-    if (!error && data) { setStages((s) => [...s, data]); setExpanded((prev) => new Set(prev).add(goalId)); }
+    if (!error && data) {
+      setStages((s) => [...s, data]); setExpanded((prev) => new Set(prev).add(goalId));
+      logEvent({ goalId, goalName: goalNameOf(goalId), kind: "stage_added", detail: `этап «${name}» добавлен` });
+    }
   };
-  const removeStage = async (id) => { setStages((s) => s.filter((x) => x.id !== id)); dropLinksByStage?.(id); await supabase.from("goal_stages").delete().eq("id", id); };
+  const removeStage = async (stage) => {
+    setStages((s) => s.filter((x) => x.id !== stage.id)); dropLinksByStage?.(stage.id);
+    await supabase.from("goal_stages").delete().eq("id", stage.id);
+    logEvent({ goalId: stage.goal_id, goalName: goalNameOf(stage.goal_id), kind: "stage_deleted", detail: `этап «${stage.name}» удалён` });
+  };
   const setStageName = async (id, name) => { setStages((s) => s.map((x) => (x.id === id ? { ...x, name } : x))); await supabase.from("goal_stages").update({ name }).eq("id", id); };
   const cycleStageStatus = async (stage) => {
     const st = next(stage.status);
     setStages((s) => s.map((x) => (x.id === stage.id ? { ...x, status: st } : x)));
     await supabase.from("goal_stages").update({ status: st }).eq("id", stage.id);
+    if (st === "done") logEvent({ goalId: stage.goal_id, goalName: goalNameOf(stage.goal_id), kind: "stage_done", detail: `этап «${stage.name}» выполнен` });
   };
   const moveStage = async (stage, dir) => {
     const sibs = stagesFor(stage.goal_id);
@@ -201,9 +255,9 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
 
   const rp = {
     editing, groups, habits, habitsById, progressFor, stagesFor, linksForGoal, linksForStage, toggleGoalLink, toggleStageLink,
-    setGoalName, setGoalDate, setGoalGroup, cycleGoalStatus, setGoalStatus, removeGoal, moveGoal,
+    setGoalName, changeGoalDate, setGoalGroup, cycleGoalStatus, changeGoalStatus, requestDeleteGoal, moveGoal,
     addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage, cycleStageStatus, setStageName, moveStage,
-    expanded, toggleExpand, dismissed, setDismissed,
+    expanded, toggleExpand, dismissed, setDismissed, eventsForGoal, histOpen, toggleHist,
   };
 
   return (
@@ -292,15 +346,36 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
           <button onClick={() => setAddingGroup(true)} style={{ ...dashedBtn(), marginTop: 8 }}><FolderPlus size={16} /> Новая группа</button>
         )
       )}
+
+      {modal && (
+        <div onClick={() => { const cb = modal.onResolve; setModal(null); cb(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 360, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 16, padding: 16 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>{modal.title}</div>
+            <input autoFocus className="ht-input" value={reasonText} onChange={(e) => setReasonText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { const cb = modal.onResolve; setModal(null); cb(reasonText.trim()); } }}
+              placeholder="Причина (необязательно)…"
+              style={{ width: "100%", boxSizing: "border-box", background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "9px 12px", color: C.text, fontSize: 14, outline: "none" }} />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              {modal.skip && (
+                <button onClick={() => { const cb = modal.onResolve; setModal(null); cb(""); }}
+                  style={{ padding: "8px 14px", borderRadius: 10, fontSize: 13, background: "transparent", color: C.muted, border: `1px solid ${C.line}`, cursor: "pointer" }}>Пропустить</button>
+              )}
+              <button onClick={() => { const cb = modal.onResolve; setModal(null); cb(reasonText.trim()); }}
+                style={{ padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", background: modal.destructive ? C.danger : C.gold, color: modal.destructive ? "#fff" : "#1A1208" }}>{modal.confirmLabel}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function GoalRow({
   goal, canUp, canDown, editing, groups, habits, habitsById, progressFor, stagesFor, linksForGoal, linksForStage,
-  toggleGoalLink, toggleStageLink, setGoalName, setGoalDate, setGoalGroup, cycleGoalStatus, setGoalStatus,
-  removeGoal, moveGoal, addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage,
-  cycleStageStatus, setStageName, moveStage, expanded, toggleExpand, dismissed, setDismissed,
+  toggleGoalLink, toggleStageLink, setGoalName, changeGoalDate, setGoalGroup, cycleGoalStatus, changeGoalStatus,
+  requestDeleteGoal, moveGoal, addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage,
+  cycleStageStatus, setStageName, moveStage, expanded, toggleExpand, dismissed, setDismissed, eventsForGoal, histOpen, toggleHist,
 }) {
   const st = stagesFor(goal.id);
   const hasStages = st.length > 0;
@@ -328,14 +403,14 @@ function GoalRow({
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
               style={{ width: "100%", boxSizing: "border-box", background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 8px", color: C.text, fontSize: 14, fontWeight: 500 }} />
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-              <input type="date" defaultValue={goal.target_date || ""} onChange={(e) => setGoalDate(goal.id, e.target.value)} style={dateInputStyle()} />
+              <input type="date" defaultValue={goal.target_date || ""} onChange={(e) => changeGoalDate(goal, e.target.value)} style={dateInputStyle()} />
               <select value={goal.group_id || ""} onChange={(e) => setGoalGroup(goal.id, e.target.value || null)}>
                 <option value="">Без группы</option>
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
               <button onClick={() => moveGoal(goal, -1)} disabled={!canUp} aria-label="Выше" style={miniBtn(!canUp)}><ArrowUp size={15} /></button>
               <button onClick={() => moveGoal(goal, 1)} disabled={!canDown} aria-label="Ниже" style={miniBtn(!canDown)}><ArrowDown size={15} /></button>
-              <button onClick={() => removeGoal(goal.id)} aria-label="Удалить" style={{ padding: 7, borderRadius: 9, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={15} /></button>
+              <button onClick={() => requestDeleteGoal(goal)} aria-label="Удалить" style={{ padding: 7, borderRadius: 9, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={15} /></button>
             </div>
             <div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 5 }}>Привычки цели:</div>
@@ -372,11 +447,30 @@ function GoalRow({
         </div>
       )}
 
+      {/* мини-история цели (view mode) */}
+      {!editing && (() => {
+        const evs = eventsForGoal ? eventsForGoal(goal.id) : [];
+        if (evs.length === 0) return null;
+        const open = histOpen?.has(goal.id);
+        return (
+          <div style={{ padding: "0 12px 10px 48px" }}>
+            <button onClick={() => toggleHist(goal.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: C.muted, background: "transparent", border: "none", cursor: "pointer", padding: "2px 0" }}>
+              <History size={12} /> История ({evs.length}) {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+            {open && (
+              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6, borderLeft: `1px solid ${C.line}`, paddingLeft: 10 }}>
+                {evs.map((e) => <EventLine key={e.id} e={e} />)}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {showPrompt && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", background: C.gold + "18", borderTop: `1px solid ${C.gold}33` }}>
           <span style={{ fontSize: 12.5, color: C.goldHot }}>Все этапы выполнены — цель тоже готова?</span>
           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-            <button onClick={() => setGoalStatus(goal.id, "done")} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>Да, готово</button>
+            <button onClick={() => changeGoalStatus(goal, "done")} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>Да, готово</button>
             <button onClick={() => setDismissed((p) => new Set(p).add(goal.id))} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "transparent", color: C.muted, border: `1px solid ${C.line}`, cursor: "pointer" }}>Ещё нет</button>
           </div>
         </div>
@@ -401,7 +495,7 @@ function GoalRow({
                         style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 8px", color: C.text, fontSize: 13 }} />
                       <button onClick={() => moveStage(s, -1)} disabled={i === 0} aria-label="Выше" style={miniBtn(i === 0)}><ArrowUp size={13} /></button>
                       <button onClick={() => moveStage(s, 1)} disabled={i === st.length - 1} aria-label="Ниже" style={miniBtn(i === st.length - 1)}><ArrowDown size={13} /></button>
-                      <button onClick={() => removeStage(s.id)} aria-label="Удалить этап" style={{ padding: 6, borderRadius: 8, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={13} /></button>
+                      <button onClick={() => removeStage(s)} aria-label="Удалить этап" style={{ padding: 6, borderRadius: 8, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={13} /></button>
                     </>
                   ) : (
                     <span style={{ fontSize: 13, color: s.status === "done" ? C.muted : C.text, textDecoration: s.status === "done" ? "line-through" : "none" }}>{s.name}</span>
