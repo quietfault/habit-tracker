@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink, ListTodo, History, MoreHorizontal } from "lucide-react";
+import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink, ListTodo, History, MoreHorizontal, Gem } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Stats from "./Stats.jsx";
 import Goals from "./Goals.jsx";
 import Tasks from "./Tasks.jsx";
 import Feed from "./Feed.jsx";
+import Values from "./Values.jsx";
 
 const C = {
   bg: "#131319", surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
@@ -31,6 +32,8 @@ export default function HabitTracker({ session }) {
   const [habits, setHabits] = useState([]);
   const [done, setDone] = useState(new Set());
   const [links, setLinks] = useState([]); // {id, habit_id, goal_id, stage_id}
+  const [values, setValues] = useState([]); // {id, name, description, sort_order}
+  const [valueLinks, setValueLinks] = useState([]); // {id, goal_id, value_id}
   const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState("today");
   const [moreOpen, setMoreOpen] = useState(false);
@@ -51,16 +54,20 @@ export default function HabitTracker({ session }) {
   const persistCollapsed = (s) => localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s]));
 
   const load = useCallback(async () => {
-    const [{ data: gs }, { data: hs }, { data: cs }, { data: lk }] = await Promise.all([
+    const [{ data: gs }, { data: hs }, { data: cs }, { data: lk }, { data: vals }, { data: vlk }] = await Promise.all([
       supabase.from("groups").select("*").order("sort_order"),
       supabase.from("habits").select("*").order("sort_order"),
       supabase.from("completions").select("habit_id, day"),
       supabase.from("goal_habit_links").select("*"),
+      supabase.from("values_list").select("*").order("sort_order"),
+      supabase.from("goal_value_links").select("*"),
     ]);
     setGroups(gs || []);
     setHabits(hs || []);
     setDone(new Set((cs || []).map((c) => `${c.habit_id}|${c.day}`)));
     setLinks(lk || []);
+    setValues(vals || []);
+    setValueLinks(vlk || []);
     setLoaded(true);
   }, []);
 
@@ -114,6 +121,44 @@ export default function HabitTracker({ session }) {
   };
   const dropLinksByGoal = (goalId) => setLinks((l) => l.filter((x) => x.goal_id !== goalId));
   const dropLinksByStage = (stageId) => setLinks((l) => l.filter((x) => x.stage_id !== stageId));
+
+  // ── ценности (CRUD) ──
+  const addValue = async (name) => {
+    const maxSort = values.reduce((m, v) => Math.max(m, v.sort_order ?? 0), 0);
+    const { data, error } = await supabase.from("values_list").insert({ name, sort_order: maxSort + 1 }).select().single();
+    if (!error && data) setValues((v) => [...v, data]);
+  };
+  const updateValue = async (id, patch) => {
+    setValues((v) => v.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    await supabase.from("values_list").update(patch).eq("id", id);
+  };
+  const removeValue = async (id) => {
+    setValues((v) => v.filter((x) => x.id !== id));
+    setValueLinks((l) => l.filter((x) => x.value_id !== id));
+    await supabase.from("values_list").delete().eq("id", id);
+  };
+  const moveValue = async (value, dir) => {
+    const sibs = [...values].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const i = sibs.findIndex((x) => x.id === value.id); const j = i + dir;
+    if (j < 0 || j >= sibs.length) return;
+    const other = sibs[j]; const a = value.sort_order ?? 0, b = other.sort_order ?? 0;
+    setValues((prev) => prev.map((x) => x.id === value.id ? { ...x, sort_order: b } : x.id === other.id ? { ...x, sort_order: a } : x));
+    await Promise.all([
+      supabase.from("values_list").update({ sort_order: b }).eq("id", value.id),
+      supabase.from("values_list").update({ sort_order: a }).eq("id", other.id),
+    ]);
+  };
+
+  // ── связи цель↔ценность ──
+  const linkValue = async (goalId, valueId) => {
+    const { data, error } = await supabase.from("goal_value_links").insert({ goal_id: goalId, value_id: valueId }).select().single();
+    if (!error && data) setValueLinks((l) => [...l, data]);
+  };
+  const unlinkValue = async (linkId) => {
+    setValueLinks((l) => l.filter((x) => x.id !== linkId));
+    await supabase.from("goal_value_links").delete().eq("id", linkId);
+  };
+  const dropValueLinksByGoal = (goalId) => setValueLinks((l) => l.filter((x) => x.goal_id !== goalId));
 
   const toggle = async (hid, ds) => {
     const key = `${hid}|${ds}`;
@@ -225,11 +270,12 @@ export default function HabitTracker({ session }) {
           <SegBtn active={view === "tasks"} onClick={() => { setView("tasks"); setMoreOpen(false); }} icon={<ListTodo size={15} />} label="Задачи" />
           <SegBtn active={view === "today"} onClick={() => { setView("today"); setMoreOpen(false); }} icon={<ListChecks size={15} />} label="Привычки" />
           <div style={{ position: "relative", flex: "1 0 auto", display: "flex" }}>
-            <SegBtn active={view === "feed" || view === "stats"} onClick={() => setMoreOpen((o) => !o)} icon={<MoreHorizontal size={15} />} label="Ещё" />
+            <SegBtn active={view === "feed" || view === "stats" || view === "values"} onClick={() => setMoreOpen((o) => !o)} icon={<MoreHorizontal size={15} />} label="Ещё" />
             {moreOpen && (
               <>
                 <div onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
                 <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, minWidth: 170, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 6, zIndex: 30, boxShadow: "0 10px 28px rgba(0,0,0,0.45)" }}>
+                  <MoreItem icon={<Gem size={15} />} label="Ценности" active={view === "values"} onClick={() => { setView("values"); setMoreOpen(false); }} />
                   <MoreItem icon={<History size={15} />} label="Лог" active={view === "feed"} onClick={() => { setView("feed"); setMoreOpen(false); }} />
                   <MoreItem icon={<BarChart3 size={15} />} label="Статистика" active={view === "stats"} onClick={() => { setView("stats"); setMoreOpen(false); }} />
                 </div>
@@ -242,10 +288,13 @@ export default function HabitTracker({ session }) {
           <Tasks />
         ) : view === "feed" ? (
           <Feed />
+        ) : view === "values" ? (
+          <Values values={values} valueLinks={valueLinks} addValue={addValue} updateValue={updateValue} removeValue={removeValue} moveValue={moveValue} />
         ) : view === "goals" ? (
           <Goals habits={habits} links={links} progressFor={progressFor}
             linkHabit={linkHabit} unlinkHabit={unlinkHabit}
-            dropLinksByGoal={dropLinksByGoal} dropLinksByStage={dropLinksByStage} />
+            dropLinksByGoal={dropLinksByGoal} dropLinksByStage={dropLinksByStage}
+            values={values} valueLinks={valueLinks} linkValue={linkValue} unlinkValue={unlinkValue} dropValueLinksByGoal={dropValueLinksByGoal} />
         ) : view === "stats" ? (
           <Stats habits={habits} done={done} groups={groups} />
         ) : (
@@ -370,7 +419,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: met ? C.goldHot : C.muted, fontVariantNumeric: "tabular-nums" }}>{wc}/{h.target_per_week} на неделе</span>
         {ws > 0 && <><Flame size={12} color={C.gold} /><span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{ws} нед</span></>}
-        {unlinked && <Unlink size={11} color={C.faint} />}
+        {unlinked && <Unlink size={11} color={C.gold} />}
       </div>
     );
   } else {
@@ -380,7 +429,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
         <Flame size={13} color={hot ? C.goldHot : s > 0 ? C.gold : C.faint} fill={hot ? C.goldHot : "none"} />
         <span style={{ fontSize: 12, color: s > 0 ? C.muted : C.faint, fontVariantNumeric: "tabular-nums" }}>{s > 0 ? `${s} дн.` : "нет серии"}</span>
-        {unlinked && <Unlink size={11} color={C.faint} />}
+        {unlinked && <Unlink size={11} color={C.gold} />}
       </div>
     );
   }

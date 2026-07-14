@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, Trash2, Pencil, X, ChevronDown, ChevronRight, FolderPlus,
-  Circle, CircleDot, CheckCircle2, ArrowUp, ArrowDown, Calendar, Link2, Unlink, History,
+  Circle, CircleDot, CheckCircle2, ArrowUp, ArrowDown, Calendar, Link2, Unlink, History, Gem,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import { EventLine } from "./events.jsx";
@@ -43,6 +43,26 @@ function ProgressChip({ habit, progress }) {
   );
 }
 
+function emptyMarkStyle() {
+  return { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, color: C.gold, background: C.gold + "1F", padding: "1px 8px", borderRadius: 999 };
+}
+
+function ValuePicker({ values, isLinked, onToggle }) {
+  if (!values.length) return <div style={{ fontSize: 12, color: C.faint }}>Ценностей пока нет — добавь их во вкладке «Ещё → Ценности».</div>;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {values.map((v) => {
+        const on = isLinked(v.id);
+        return (
+          <button key={v.id} onClick={() => onToggle(v.id)} style={{ padding: "4px 9px", borderRadius: 999, fontSize: 12, cursor: "pointer", border: `1px solid ${on ? C.gold : C.line}`, background: on ? C.gold + "22" : "transparent", color: on ? C.goldHot : C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            {on ? <Gem size={11} /> : null}{v.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function HabitPicker({ habits, isLinked, onToggle }) {
   if (!habits.length) return <div style={{ fontSize: 12, color: C.faint }}>Сначала добавь привычки во вкладке «Сегодня».</div>;
   return (
@@ -59,7 +79,7 @@ function HabitPicker({ habits, isLinked, onToggle }) {
   );
 }
 
-export default function Goals({ habits = [], links = [], progressFor, linkHabit, unlinkHabit, dropLinksByGoal, dropLinksByStage }) {
+export default function Goals({ habits = [], links = [], progressFor, linkHabit, unlinkHabit, dropLinksByGoal, dropLinksByStage, values = [], valueLinks = [], linkValue, unlinkValue, dropValueLinksByGoal }) {
   const [groups, setGroups] = useState([]);
   const [goals, setGoals] = useState([]);
   const [stages, setStages] = useState([]);
@@ -86,6 +106,12 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
 
   const persistCollapsed = (s) => localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s]));
   const habitsById = useMemo(() => Object.fromEntries(habits.map((h) => [h.id, h])), [habits]);
+  const valuesById = useMemo(() => Object.fromEntries(values.map((v) => [v.id, v])), [values]);
+  const valueLinksForGoal = (goalId) => valueLinks.filter((l) => l.goal_id === goalId);
+  const toggleGoalValue = (goalId, valueId) => {
+    const ex = valueLinks.find((l) => l.goal_id === goalId && l.value_id === valueId);
+    ex ? unlinkValue(ex.id) : linkValue(goalId, valueId);
+  };
 
   const load = useCallback(async () => {
     const [{ data: gg }, { data: gs }, { data: st }, { data: ev }] = await Promise.all([
@@ -163,6 +189,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
     setGoals((g) => g.filter((x) => x.id !== id));
     setStages((s) => s.filter((x) => x.goal_id !== id));
     dropLinksByGoal?.(id);
+    dropValueLinksByGoal?.(id);
     await supabase.from("goals").delete().eq("id", id);
   };
   const requestDeleteGoal = (goal) => {
@@ -255,6 +282,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
 
   const rp = {
     editing, groups, habits, habitsById, progressFor, stagesFor, linksForGoal, linksForStage, toggleGoalLink, toggleStageLink,
+    values, valuesById, valueLinksForGoal, toggleGoalValue,
     setGoalName, changeGoalDate, setGoalGroup, cycleGoalStatus, changeGoalStatus, requestDeleteGoal, moveGoal,
     addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage, cycleStageStatus, setStageName, moveStage,
     expanded, toggleExpand, dismissed, setDismissed, eventsForGoal, histOpen, toggleHist,
@@ -373,6 +401,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
 
 function GoalRow({
   goal, canUp, canDown, editing, groups, habits, habitsById, progressFor, stagesFor, linksForGoal, linksForStage,
+  values, valuesById, valueLinksForGoal, toggleGoalValue,
   toggleGoalLink, toggleStageLink, setGoalName, changeGoalDate, setGoalGroup, cycleGoalStatus, changeGoalStatus,
   requestDeleteGoal, moveGoal, addingStageFor, setAddingStageFor, stageDraft, setStageDraft, addStage, removeStage,
   cycleStageStatus, setStageName, moveStage, expanded, toggleExpand, dismissed, setDismissed, eventsForGoal, histOpen, toggleHist,
@@ -388,6 +417,9 @@ function GoalRow({
   const goalHabits = goalLinks.map((l) => habitsById[l.habit_id]).filter(Boolean);
   const stageLinkCount = st.reduce((n, s) => n + linksForStage(s.id).length, 0);
   const bare = goalLinks.length === 0 && stageLinkCount === 0;
+  const goalValueLinks = valueLinksForGoal ? valueLinksForGoal(goal.id) : [];
+  const goalValues = goalValueLinks.map((l) => valuesById?.[l.value_id]).filter(Boolean);
+  const valueBare = goalValueLinks.length === 0;
 
   return (
     <div style={{ borderRadius: 16, background: C.surface, border: `1px solid ${goal.status === "done" ? C.gold + "55" : C.line}`, overflow: "hidden" }}>
@@ -416,6 +448,10 @@ function GoalRow({
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 5 }}>Привычки цели:</div>
               <HabitPicker habits={habits} isLinked={(hid) => goalLinks.some((l) => l.habit_id === hid)} onToggle={(hid) => toggleGoalLink(goal.id, hid)} />
             </div>
+            <div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 5 }}>Ценности:</div>
+              <ValuePicker values={values} isLinked={(vid) => goalValueLinks.some((l) => l.value_id === vid)} onToggle={(vid) => toggleGoalValue(goal.id, vid)} />
+            </div>
           </div>
         ) : (
           <div style={{ minWidth: 0, flex: 1, cursor: hasStages ? "pointer" : "default" }} onClick={() => hasStages && toggleExpand(goal.id)}>
@@ -428,7 +464,8 @@ function GoalRow({
                 </span>
               )}
               {hasStages && <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{st.filter((s) => s.status === "done").length}/{st.length} этапов</span>}
-              {bare && <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, color: C.faint }}><Unlink size={11} /> нет привычек</span>}
+              {bare && <span style={emptyMarkStyle()}><Unlink size={10} /> нет привычек</span>}
+              {valueBare && <span style={emptyMarkStyle()}><Gem size={10} /> нет ценностей</span>}
             </div>
           </div>
         )}
@@ -444,6 +481,16 @@ function GoalRow({
       {!editing && goalHabits.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 12px 12px 48px" }}>
           {goalHabits.map((h) => <ProgressChip key={h.id} habit={h} progress={progressFor?.(h)} />)}
+        </div>
+      )}
+
+      {/* каким ценностям служит цель (view mode) */}
+      {!editing && goalValues.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 12px 12px 48px", alignItems: "center" }}>
+          <Gem size={12} color={C.muted} />
+          {goalValues.map((v) => (
+            <span key={v.id} style={{ display: "inline-flex", alignItems: "center", padding: "3px 8px", borderRadius: 999, fontSize: 11.5, background: C.surface2, border: `1px solid ${C.line}`, color: C.text }}>{v.name}</span>
+          ))}
         </div>
       )}
 
