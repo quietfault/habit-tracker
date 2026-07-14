@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink, ListTodo, History } from "lucide-react";
+import { Plus, Check, Flame, Trash2, Pencil, X, LogOut, ChevronDown, ChevronRight, BarChart3, ListChecks, FolderPlus, ArrowUp, ArrowDown, Target, Unlink, ListTodo, History, MoreHorizontal } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Stats from "./Stats.jsx";
 import Goals from "./Goals.jsx";
@@ -33,6 +33,7 @@ export default function HabitTracker({ session }) {
   const [links, setLinks] = useState([]); // {id, habit_id, goal_id, stage_id}
   const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState("today");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
@@ -219,12 +220,22 @@ export default function HabitTracker({ session }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: C.surface, marginBottom: 20, overflowX: "auto" }}>
-          <SegBtn active={view === "today"} onClick={() => setView("today")} icon={<ListChecks size={15} />} label="Сегодня" />
-          <SegBtn active={view === "tasks"} onClick={() => setView("tasks")} icon={<ListTodo size={15} />} label="Задачи" />
-          <SegBtn active={view === "goals"} onClick={() => setView("goals")} icon={<Target size={15} />} label="Цели" />
-          <SegBtn active={view === "feed"} onClick={() => setView("feed")} icon={<History size={15} />} label="Лента" />
-          <SegBtn active={view === "stats"} onClick={() => setView("stats")} icon={<BarChart3 size={15} />} label="Статистика" />
+        <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: C.surface, marginBottom: 20, position: "relative" }}>
+          <SegBtn active={view === "goals"} onClick={() => { setView("goals"); setMoreOpen(false); }} icon={<Target size={15} />} label="Цели" />
+          <SegBtn active={view === "tasks"} onClick={() => { setView("tasks"); setMoreOpen(false); }} icon={<ListTodo size={15} />} label="Задачи" />
+          <SegBtn active={view === "today"} onClick={() => { setView("today"); setMoreOpen(false); }} icon={<ListChecks size={15} />} label="Привычки" />
+          <div style={{ position: "relative", flex: "1 0 auto", display: "flex" }}>
+            <SegBtn active={view === "feed" || view === "stats"} onClick={() => setMoreOpen((o) => !o)} icon={<MoreHorizontal size={15} />} label="Ещё" />
+            {moreOpen && (
+              <>
+                <div onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
+                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, minWidth: 170, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 12, padding: 6, zIndex: 30, boxShadow: "0 10px 28px rgba(0,0,0,0.45)" }}>
+                  <MoreItem icon={<History size={15} />} label="Лог" active={view === "feed"} onClick={() => { setView("feed"); setMoreOpen(false); }} />
+                  <MoreItem icon={<BarChart3 size={15} />} label="Статистика" active={view === "stats"} onClick={() => { setView("stats"); setMoreOpen(false); }} />
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {view === "tasks" ? (
@@ -419,6 +430,10 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
       )}
     </div>
   );
+}
+
+function MoreItem({ active, onClick, icon, label }) {
+  return <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 500, cursor: "pointer", border: "none", background: active ? C.surface : "transparent", color: active ? C.goldHot : C.text, textAlign: "left" }}>{icon} {label}</button>;
 }
 
 function SegBtn({ active, onClick, icon, label }) {

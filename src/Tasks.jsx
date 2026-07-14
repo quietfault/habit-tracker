@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Plus, Trash2, Pencil, X, ChevronDown, ChevronRight,
-  Circle, CheckCircle2, ArrowUp, ArrowDown, Calendar, Inbox,
+  Circle, CheckCircle2, ArrowUp, ArrowDown, Calendar, Inbox, Eye, EyeOff, Square, CheckSquare,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -39,6 +39,9 @@ export default function Tasks() {
   });
   const [addingSubFor, setAddingSubFor] = useState(null);
   const [subDraft, setSubDraft] = useState("");
+  const [showDone, setShowDone] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
 
   const persistCollapsed = (s) => localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s]));
 
@@ -127,10 +130,23 @@ export default function Tasks() {
   const toggleExpand = (id) => setExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleCollapse = (key) => setCollapsed((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); persistCollapsed(n); return n; });
 
+  const doneTasks = tasks.filter((t) => t.done);
+  const toggleSelect = (id) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectAllDone = () => setSelected(new Set(doneTasks.map((t) => t.id)));
+  const exitSelect = () => { setSelecting(false); setSelected(new Set()); };
+  const clearSelected = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) { exitSelect(); return; }
+    setTasks((t) => t.filter((x) => !selected.has(x.id)));
+    setSubtasks((s) => s.filter((x) => !selected.has(x.task_id)));
+    exitSelect();
+    await supabase.from("tasks").delete().in("id", ids);
+  };
+
   const rp = {
     editing, subsFor, toggleDone, setImportant, setUrgent, setTitle, setDue, removeTask, moveTask,
     addingSubFor, setAddingSubFor, subDraft, setSubDraft, addSub, toggleSub, setSubTitle, removeSub, moveSub,
-    expanded, toggleExpand,
+    expanded, toggleExpand, showDone, selecting, selected, toggleSelect,
   };
 
   const inboxCount = tasks.filter((t) => !t.triaged && !t.done).length;
@@ -148,12 +164,38 @@ export default function Tasks() {
         )}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <span style={{ fontSize: 12, color: C.muted }}>{inboxCount > 0 ? `${inboxCount} не разобрано` : "инбокс пуст"}</span>
-        <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.gold : C.muted)}>
-          {editing ? <X size={13} /> : <Pencil size={13} />} {editing ? "Готово" : "Править"}
-        </button>
+        <div style={{ display: "flex", gap: 4 }}>
+          {doneTasks.length > 0 && (
+            <button onClick={() => { setShowDone((v) => !v); if (selecting) exitSelect(); }} style={iconBtn(showDone ? C.gold : C.muted)}>
+              {showDone ? <EyeOff size={13} /> : <Eye size={13} />} {showDone ? "Скрыть готовые" : `Готовые (${doneTasks.length})`}
+            </button>
+          )}
+          <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.gold : C.muted)}>
+            {editing ? <X size={13} /> : <Pencil size={13} />} {editing ? "Готово" : "Править"}
+          </button>
+        </div>
       </div>
+
+      {showDone && doneTasks.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderRadius: 12, background: C.surface, border: `1px solid ${C.line}`, marginBottom: 12 }}>
+          {selecting ? (
+            <>
+              <button onClick={selectAllDone} style={{ fontSize: 12.5, color: C.text, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Выбрать все</button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={clearSelected} disabled={selected.size === 0} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: selected.size ? "pointer" : "default", border: "none", background: selected.size ? C.danger : C.surface2, color: selected.size ? "#fff" : C.faint }}>Удалить{selected.size ? ` (${selected.size})` : ""}</button>
+                <button onClick={exitSelect} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12.5, background: "transparent", color: C.muted, border: `1px solid ${C.line}`, cursor: "pointer" }}>Отмена</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: 12, color: C.muted }}>Выполненные показаны</span>
+              <button onClick={() => setSelecting(true)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, color: C.danger, background: "transparent", border: "none", cursor: "pointer" }}><Trash2 size={13} /> Очистить</button>
+            </>
+          )}
+        </div>
+      )}
 
       {loaded && tasks.length === 0 && (
         <div style={{ textAlign: "center", padding: "40px 0", borderRadius: 16, background: C.surface, border: `1px solid ${C.line}` }}>
@@ -163,17 +205,19 @@ export default function Tasks() {
       )}
 
       {SECTIONS.map((sec) => {
-        const items = tasks.filter((t) => sec.match(t)).sort(bySort);
-        if (items.length === 0) return null;
+        const all = tasks.filter((t) => sec.match(t)).sort(bySort);
+        if (all.length === 0) return null;
+        const items = showDone ? all : all.filter((t) => !t.done);
         const isCol = collapsed.has(sec.key);
-        const openCount = items.filter((t) => !t.done).length;
+        const openCount = all.filter((t) => !t.done).length;
+        if (items.length === 0) return null;
         return (
           <div key={sec.key} style={{ marginBottom: 14 }}>
             <button onClick={() => toggleCollapse(sec.key)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: "4px 2px", marginBottom: 8 }}>
               {isCol ? <ChevronRight size={16} color={C.muted} /> : <ChevronDown size={16} color={C.muted} />}
               <span style={{ width: 8, height: 8, borderRadius: 999, background: sec.accent, flexShrink: 0 }} />
               <span style={{ fontWeight: 600, fontSize: 14, color: C.text, flex: 1, textAlign: "left" }}>{sec.name}</span>
-              <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{openCount}/{items.length}</span>
+              <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{openCount}/{all.length}</span>
             </button>
             {!isCol && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -192,12 +236,15 @@ export default function Tasks() {
 function TaskRow({
   task, section, canUp, canDown, editing, subsFor, toggleDone, setImportant, setUrgent, setTitle, setDue,
   removeTask, moveTask, addingSubFor, setAddingSubFor, subDraft, setSubDraft, addSub, toggleSub, setSubTitle,
-  removeSub, moveSub, expanded, toggleExpand,
+  removeSub, moveSub, expanded, toggleExpand, showDone, selecting, selected, toggleSelect,
 }) {
   const subs = subsFor(task.id);
   const hasSubs = subs.length > 0;
+  const visibleSubs = (showDone || editing) ? subs : subs.filter((s) => !s.done);
   const isExp = expanded.has(task.id);
   const overdue = task.due_date && !task.done && task.due_date < TODAY;
+  const picking = selecting && task.done;
+  const isSel = selected?.has(task.id);
 
   return (
     <div style={{ borderRadius: 14, background: C.surface, border: `1px solid ${task.done ? C.line : C.line}`, overflow: "hidden", opacity: task.done ? 0.6 : 1 }}>
@@ -242,11 +289,16 @@ function TaskRow({
             {isExp ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
         )}
+        {picking && (
+          <button onClick={() => toggleSelect(task.id)} aria-label="Выбрать" style={{ flexShrink: 0, background: "transparent", border: "none", color: isSel ? C.danger : C.muted, cursor: "pointer", padding: 4 }}>
+            {isSel ? <CheckSquare size={18} /> : <Square size={18} />}
+          </button>
+        )}
       </div>
 
       {(isExp || editing) && (
         <div style={{ padding: "8px 12px 12px 40px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 6 }}>
-          {subs.map((s, i) => (
+          {visibleSubs.map((s, i) => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button onClick={() => toggleSub(s)} aria-label="Готово" style={{ flexShrink: 0, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
                 {s.done ? <CheckCircle2 size={16} color={C.gold} fill={C.gold} fillOpacity={0.18} /> : <Circle size={16} color={C.faint} />}
