@@ -3,12 +3,12 @@ dist
 .DS_Store
 *.local
 
-# Environment variables (Supabase keys)
-# Внимание: маска *.local выше покрывает .env.local, но НЕ .env —
-# до 2026-08-14 этого блока здесь не было.
+# Environment variables
+# Проект .env не использует: ключи Supabase — константы в src/supabaseClient.js
+# (publishable-ключ, публичен по дизайну). Блок оставлен на случай, если .env
+# когда-нибудь появится: маска *.local выше покрывает .env.local, но НЕ .env.
 .env
 .env.*
-!.env.example
 
 # Claude Code local tool-permission settings (per-machine, not project config)
 .claude/settings.local.json
