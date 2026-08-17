@@ -6,11 +6,8 @@ import Goals from "./Goals.jsx";
 import Tasks from "./Tasks.jsx";
 import Feed from "./Feed.jsx";
 import Values from "./Values.jsx";
+import { C } from "./theme";
 
-const C = {
-  bg: "#131319", surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
-  text: "#EDEDF2", muted: "#8C8C9C", faint: "#3A3A48", gold: "#F5B544", goldHot: "#FFCB5C",
-};
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -246,18 +243,18 @@ export default function HabitTracker({ session }) {
     <div style={{ background: C.bg, color: C.text, minHeight: "100%" }}>
       <style>{`
         .ht-pop{animation:htpop .22s cubic-bezier(.34,1.56,.64,1)}@keyframes htpop{0%{transform:scale(.7)}100%{transform:scale(1)}}
-        .ht-input::placeholder{color:${C.muted}}.ht-input:focus{outline:2px solid ${C.gold};outline-offset:1px}
-        button:focus-visible{outline:2px solid ${C.gold};outline-offset:2px}
+        .ht-input::placeholder{color:${C.muted}}.ht-input:focus{outline:2px solid ${C.accent};outline-offset:1px}
+        button:focus-visible{outline:2px solid ${C.accent};outline-offset:2px}
         select{color:${C.text};background:${C.surface2};border:1px solid ${C.line};border-radius:8px;padding:4px 6px;font-size:12px}
         @media (prefers-reduced-motion:reduce){.ht-pop{animation:none}}
       `}</style>
 
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: C.muted }}>{headerDate}</div>
+          <div style={{ fontSize: 12, fontWeight: 500, textTransform: "uppercase", fontFamily: C.mono, letterSpacing: C.trackingCaps, color: C.muted }}>{headerDate}</div>
           <div style={{ display: "flex", gap: 4 }}>
             {view === "today" && (
-              <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.gold : C.muted)}>
+              <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.accent : C.muted)}>
                 {editing ? <X size={13} /> : <Pencil size={13} />} {editing ? "Готово" : "Править"}
               </button>
             )}
@@ -302,11 +299,11 @@ export default function HabitTracker({ session }) {
             {dailyHabits.length > 0 && (
               <>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
-                  <span style={{ fontSize: 30, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{doneToday}</span>
+                  <span style={{ fontSize: 30, fontWeight: 600, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{doneToday}</span>
                   <span style={{ fontSize: 18, color: C.muted }}>/ {dailyHabits.length} сегодня</span>
                 </div>
-                <div style={{ height: 6, width: "100%", borderRadius: 999, background: C.faint, overflow: "hidden", marginBottom: 20 }}>
-                  <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.goldHot})`, transition: "width .5s" }} />
+                <div style={{ height: 6, width: "100%", borderRadius: 999, background: C.line, overflow: "hidden", marginBottom: 20 }}>
+                  <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: `linear-gradient(90deg, ${C.accent}, ${C.accentHot})`, transition: "width .5s" }} />
                 </div>
               </>
             )}
@@ -333,15 +330,15 @@ export default function HabitTracker({ session }) {
                 <div key={g.id} style={{ marginBottom: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 2px", marginBottom: 8 }}>
                     <button onClick={() => toggleCollapse(g.id)} style={{ display: "flex", alignItems: "center", gap: 4, background: "transparent", border: "none", color: C.text, cursor: "pointer", padding: 0, flex: 1, minWidth: 0 }}>
-                      {isCol ? <ChevronRight size={16} color={C.muted} /> : <ChevronDown size={16} color={C.muted} />}
+                      {isCol ? <ChevronRight size={16} style={{ color: C.muted }} /> : <ChevronDown size={16} style={{ color: C.muted }} />}
                       {editing ? (
                         <input className="ht-input" defaultValue={g.name} onBlur={(e) => renameGroup(g.id, e.target.value.trim() || g.name)} onClick={(e) => e.stopPropagation()} style={{ flex: 1, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "3px 8px", color: C.text, fontSize: 14, fontWeight: 600 }} />
                       ) : (
                         <span style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
                       )}
                     </button>
-                    <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{ok}/{items.length}</span>
-                    {editing && <button onClick={() => removeGroup(g.id)} title="Удалить группу" style={{ padding: 4, borderRadius: 8, color: "#E0656B", background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={14} /></button>}
+                    <span style={{ fontSize: 12, color: C.muted, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{ok}/{items.length}</span>
+                    {editing && <button onClick={() => removeGroup(g.id)} title="Удалить группу" style={{ padding: 4, borderRadius: 8, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={14} /></button>}
                   </div>
                   {!isCol && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -364,7 +361,7 @@ export default function HabitTracker({ session }) {
 
             {habits.length > 0 && !adding && <button onClick={() => setAdding(true)} style={dashedBtn()}><Plus size={16} /> Новая привычка</button>}
             {adding && (
-              <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: 8, borderRadius: 16, background: C.surface, border: `1px solid ${C.gold}55` }}>
+              <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: 8, borderRadius: 16, background: C.surface, border: `1px solid ${C.accentEdge}` }}>
                 <input autoFocus className="ht-input" value={draft} onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addHabit(); if (e.key === "Escape") { setAdding(false); setDraft(""); } }}
                   placeholder="Название привычки…" style={{ flex: 1, minWidth: 130, background: "transparent", border: "none", padding: "6px 8px", fontSize: 14, color: C.text, outline: "none" }} />
@@ -377,7 +374,7 @@ export default function HabitTracker({ session }) {
                     {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 )}
-                <button onClick={addHabit} style={{ padding: "6px 12px", borderRadius: 10, fontSize: 14, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>Добавить</button>
+                <button onClick={addHabit} style={{ padding: "6px 12px", borderRadius: 10, fontSize: 14, fontWeight: 500, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }}>Добавить</button>
                 <button onClick={() => { setAdding(false); setDraft(""); }} aria-label="Отмена" style={{ padding: 6, borderRadius: 10, color: C.muted, background: "transparent", border: "none", cursor: "pointer" }}><X size={16} /></button>
               </div>
             )}
@@ -417,9 +414,9 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
     const met = wc >= h.target_per_week;
     subtitle = (
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: met ? C.goldHot : C.muted, fontVariantNumeric: "tabular-nums" }}>{wc}/{h.target_per_week} на неделе</span>
-        {ws > 0 && <><Flame size={12} color={C.gold} /><span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{ws} нед</span></>}
-        {unlinked && <Unlink size={11} color={C.gold} />}
+        <span style={{ fontSize: 12, fontWeight: 600, color: met ? C.accentHot : C.muted, fontVariantNumeric: "tabular-nums" }}>{wc}/{h.target_per_week} на неделе</span>
+        {ws > 0 && <><Flame size={12} style={{ color: C.accent }} /><span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{ws} нед</span></>}
+        {unlinked && <Unlink size={11} style={{ color: C.accent }} />}
       </div>
     );
   } else {
@@ -427,18 +424,18 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
     const hot = s >= 4;
     subtitle = (
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-        <Flame size={13} color={hot ? C.goldHot : s > 0 ? C.gold : C.faint} fill={hot ? C.goldHot : "none"} />
+        <Flame size={13} style={{ color: hot ? C.accentHot : s > 0 ? C.accent : C.faint }} fill={hot ? "currentColor" : "none"} />
         <span style={{ fontSize: 12, color: s > 0 ? C.muted : C.faint, fontVariantNumeric: "tabular-nums" }}>{s > 0 ? `${s} дн.` : "нет серии"}</span>
-        {unlinked && <Unlink size={11} color={C.gold} />}
+        {unlinked && <Unlink size={11} style={{ color: C.accent }} />}
       </div>
     );
   }
 
   return (
-    <div style={{ display: "flex", alignItems: editing ? "stretch" : "center", gap: 12, padding: 12, borderRadius: 16, background: C.surface, border: `1px solid ${satisfied ? C.gold + "55" : C.line}`, transition: "border-color .25s" }}>
+    <div style={{ display: "flex", alignItems: editing ? "stretch" : "center", gap: 12, padding: 12, borderRadius: 16, background: C.surface, border: `1px solid ${satisfied ? C.accentEdge : C.line}`, transition: "border-color .25s" }}>
       <button onClick={() => toggle(h.id, today)} aria-label="Отметить сегодня"
-        style={{ flexShrink: 0, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 999, background: todayDone ? C.gold : "transparent", border: `2px solid ${todayDone ? C.gold : C.faint}`, cursor: "pointer", transition: "all .2s" }}>
-        {todayDone && <Check size={20} strokeWidth={3} color="#1A1208" className="ht-pop" />}
+        style={{ flexShrink: 0, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 999, background: todayDone ? C.accent : "transparent", border: `2px solid ${todayDone ? C.accent : C.line}`, cursor: "pointer", transition: "all .2s" }}>
+        {todayDone && <Check size={20} strokeWidth={3} style={{ color: C.onFill }} className="ht-pop" />}
       </button>
 
       {editing ? (
@@ -457,7 +454,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
             </select>
             <button onClick={() => moveHabit(h, -1)} disabled={!canUp} aria-label="Выше" style={miniBtn(!canUp)}><ArrowUp size={15} /></button>
             <button onClick={() => moveHabit(h, 1)} disabled={!canDown} aria-label="Ниже" style={miniBtn(!canDown)}><ArrowDown size={15} /></button>
-            <button onClick={() => removeHabit(h.id)} aria-label="Удалить" style={{ padding: 7, borderRadius: 9, color: "#E0656B", background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={15} /></button>
+            <button onClick={() => removeHabit(h.id)} aria-label="Удалить" style={{ padding: 7, borderRadius: 9, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={15} /></button>
           </div>
         </div>
       ) : (
@@ -472,7 +469,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
               const on = done.has(`${h.id}|${ds}`);
               const isT = ds === today;
               return <button key={ds} onClick={() => toggle(h.id, ds)} aria-label={`${WD[d.getDay()]} ${d.getDate()}`} title={`${WD[d.getDay()]} ${d.getDate()}`}
-                style={{ width: 16, height: 22, borderRadius: 6, padding: 0, background: on ? C.gold : C.surface2, border: isT ? `1.5px solid ${on ? C.goldHot : C.muted}` : `1px solid ${C.line}`, cursor: "pointer", transition: "background .2s" }} />;
+                style={{ width: 16, height: 22, borderRadius: 6, padding: 0, background: on ? C.accent : C.surface2, border: isT ? `1.5px solid ${on ? C.accentHot : C.muted}` : `1px solid ${C.line}`, cursor: "pointer", transition: "background .2s" }} />;
             })}
           </div>
         </>
@@ -482,7 +479,7 @@ function HabitRow({ h, done, today, days, editing, groups, toggle, removeHabit, 
 }
 
 function MoreItem({ active, onClick, icon, label }) {
-  return <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 500, cursor: "pointer", border: "none", background: active ? C.surface : "transparent", color: active ? C.goldHot : C.text, textAlign: "left" }}>{icon} {label}</button>;
+  return <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 500, cursor: "pointer", border: "none", background: active ? C.surface : "transparent", color: active ? C.accentHot : C.text, textAlign: "left" }}>{icon} {label}</button>;
 }
 
 function SegBtn({ active, onClick, icon, label }) {
@@ -490,5 +487,5 @@ function SegBtn({ active, onClick, icon, label }) {
 }
 function iconBtn(color) { return { display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, padding: "5px 8px", borderRadius: 8, color, background: "transparent", border: "none", cursor: "pointer" }; }
 function miniBtn(disabled) { return { padding: 7, borderRadius: 9, color: disabled ? C.faint : C.text, background: C.surface2, border: `1px solid ${C.line}`, cursor: disabled ? "default" : "pointer", display: "flex", opacity: disabled ? 0.5 : 1 }; }
-function primaryBtn() { return { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 12, fontWeight: 500, fontSize: 14, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }; }
+function primaryBtn() { return { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 12, fontWeight: 500, fontSize: 14, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }; }
 function dashedBtn() { return { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: 16, fontSize: 14, fontWeight: 500, color: C.muted, border: `1px dashed ${C.line}`, background: "transparent", cursor: "pointer" }; }

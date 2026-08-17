@@ -1,12 +1,7 @@
 import { useMemo, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, LineChart, Line, Legend, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { ChevronDown, ChevronRight, ArrowLeft, Activity } from "lucide-react";
-
-const C = {
-  surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
-  text: "#EDEDF2", muted: "#8C8C9C", faint: "#3A3A48", gold: "#F5B544", goldHot: "#FFCB5C",
-};
-const GOLD_RGB = "245,181,68";
+import { C, paint, chartLines } from "./theme";
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -14,7 +9,6 @@ const monday = (d) => { const x = new Date(d); x.setHours(0,0,0,0); const w = (x
 const rangeDays = (n) => [...Array(n)].map((_, i) => addDays(new Date(), -(n - 1 - i)));
 const PERIODS = [{ n: 7, label: "7 дней" }, { n: 30, label: "30 дней" }, { n: 90, label: "90 дней" }];
 const NONE = "__none__";
-const LINE_COLORS = ["#F5B544", "#5AA9E6", "#E0656B", "#5FD0A6", "#C08CF0", "#EDA34A", "#6EE7E7", "#F58AC0", "#A0D468", "#B0B0C0"];
 
 export default function Stats({ habits, done, groups }) {
   const [period, setPeriod] = useState(30);
@@ -100,7 +94,7 @@ export default function Stats({ habits, done, groups }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
           {filterChips.map((c) => {
             const on = active.has(c.key);
-            return <button key={c.key} onClick={() => toggleActive(c.key)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12.5, cursor: "pointer", border: `1px solid ${on ? C.gold : C.line}`, background: on ? C.gold + "22" : "transparent", color: on ? C.goldHot : C.muted }}>{c.name}</button>;
+            return <button key={c.key} onClick={() => toggleActive(c.key)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12.5, cursor: "pointer", border: `1px solid ${on ? C.accent : C.line}`, background: on ? C.accentSoft : "transparent", color: on ? C.accentHot : C.muted }}>{c.name}</button>;
           })}
         </div>
       )}
@@ -110,7 +104,7 @@ export default function Stats({ habits, done, groups }) {
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 28, fontWeight: 600, color: C.gold, fontVariantNumeric: "tabular-nums" }}>{avg}%</span>
+            <span style={{ fontSize: 28, fontWeight: 600, color: C.accent, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{avg}%</span>
             <span style={{ fontSize: 14, color: C.muted }}>средн. за {period} дн.</span>
           </div>
 
@@ -119,12 +113,12 @@ export default function Stats({ habits, done, groups }) {
             <div style={cardTitle()}>Дневная динамика</div>
             <ResponsiveContainer width="100%" height={170}>
               <AreaChart data={daily} margin={{ left: -20, right: 8, top: 4, bottom: 4 }}>
-                <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.gold} stopOpacity={0.5} /><stop offset="100%" stopColor={C.gold} stopOpacity={0} /></linearGradient></defs>
-                <CartesianGrid stroke={C.line} vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: C.muted, fontSize: 10 }} stroke={C.line} interval="preserveStartEnd" minTickGap={24} />
-                <YAxis domain={[0, 100]} tick={{ fill: C.muted, fontSize: 11 }} stroke={C.line} unit="%" />
+                <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={paint().accent} stopOpacity={0.5} /><stop offset="100%" stopColor={paint().accent} stopOpacity={0} /></linearGradient></defs>
+                <CartesianGrid stroke={paint().line} vertical={false} />
+                <XAxis dataKey="date" tick={{ fill: paint().muted, fontSize: 10 }} stroke={paint().line} interval="preserveStartEnd" minTickGap={24} />
+                <YAxis domain={[0, 100]} tick={{ fill: paint().muted, fontSize: 11 }} stroke={paint().line} unit="%" />
                 <Tooltip contentStyle={tooltip()} formatter={(v) => [`${v}%`, "выполнено"]} />
-                <Area type="monotone" dataKey="pct" stroke={C.goldHot} strokeWidth={2} fill="url(#g)" />
+                <Area type="monotone" dataKey="pct" stroke={paint().accentHot} strokeWidth={2} fill="url(#g)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -140,15 +134,15 @@ export default function Stats({ habits, done, groups }) {
                 return hit / b.items.length;
               };
               return (
-                <div key={b.key} style={{ ...card(), ...(isFocused ? { background: C.surface2, border: `1px solid ${C.gold}55` } : null) }}>
+                <div key={b.key} style={{ ...card(), ...(isFocused ? { background: C.surface2, border: `1px solid ${C.accentEdge}` } : null) }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                    <button onClick={() => focus(b.key)} style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, background: isFocused ? C.gold + "14" : "transparent", border: "none", cursor: "pointer", padding: "6px 8px", margin: "-6px -8px", borderRadius: 8 }}>
-                      {isFocused ? <ArrowLeft size={16} color={C.gold} /> : <ChevronRight size={16} color={C.muted} />}
-                      <span style={{ fontWeight: 600, fontSize: 14, color: isFocused ? C.goldHot : C.text, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{b.name}</span>
-                      <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{groupAvg}% · {b.items.length}</span>
+                    <button onClick={() => focus(b.key)} style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, background: isFocused ? C.accentSoft : "transparent", border: "none", cursor: "pointer", padding: "6px 8px", margin: "-6px -8px", borderRadius: 8 }}>
+                      {isFocused ? <ArrowLeft size={16} style={{ color: C.accent }} /> : <ChevronRight size={16} style={{ color: C.muted }} />}
+                      <span style={{ fontWeight: 600, fontSize: 14, color: isFocused ? C.accentHot : C.text, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{b.name}</span>
+                      <span style={{ fontSize: 12, color: C.muted, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{groupAvg}% · {b.items.length}</span>
                     </button>
                     {isFocused && b.items.length > 0 && (
-                      <button onClick={() => setShowChart((s) => !s)} title="График по привычкам" style={{ flexShrink: 0, padding: 7, borderRadius: 9, cursor: "pointer", border: `1px solid ${showChart ? C.gold : C.line}`, background: showChart ? C.gold + "22" : "transparent", color: showChart ? C.goldHot : C.muted, display: "flex" }}>
+                      <button onClick={() => setShowChart((s) => !s)} title="График по привычкам" style={{ flexShrink: 0, padding: 7, borderRadius: 9, cursor: "pointer", border: `1px solid ${showChart ? C.accent : C.line}`, background: showChart ? C.accentSoft : "transparent", color: showChart ? C.accentHot : C.muted, display: "flex" }}>
                         <Activity size={16} />
                       </button>
                     )}
@@ -167,14 +161,15 @@ export default function Stats({ habits, done, groups }) {
                           </div>
                           <ResponsiveContainer width="100%" height={230}>
                             <LineChart data={buildChartData(b.items)} margin={{ left: -16, right: 8, top: 4, bottom: 4 }}>
-                              <CartesianGrid stroke={C.line} vertical={false} />
-                              <XAxis dataKey="date" tick={{ fill: C.muted, fontSize: 10 }} stroke={C.line} interval="preserveStartEnd" minTickGap={24} />
-                              <YAxis domain={metric === "cum" ? [0, 100] : [0, 7]} tick={{ fill: C.muted, fontSize: 11 }} stroke={C.line} unit={metric === "cum" ? "%" : ""} width={metric === "cum" ? 38 : 26} />
+                              <CartesianGrid stroke={paint().line} vertical={false} />
+                              <XAxis dataKey="date" tick={{ fill: paint().muted, fontSize: 10 }} stroke={paint().line} interval="preserveStartEnd" minTickGap={24} />
+                              <YAxis domain={metric === "cum" ? [0, 100] : [0, 7]} tick={{ fill: paint().muted, fontSize: 11 }} stroke={paint().line} unit={metric === "cum" ? "%" : ""} width={metric === "cum" ? 38 : 26} />
                               <Tooltip contentStyle={tooltip()} formatter={(v, n) => [metric === "cum" ? `${v}%` : v, n]} />
                               <Legend wrapperStyle={{ fontSize: 11 }} />
-                              {b.items.map((h, idx) => (
-                                <Line key={h.id} type="monotone" dataKey={h.id} name={h.name} stroke={LINE_COLORS[idx % LINE_COLORS.length]} strokeWidth={2} dot={false} connectNulls />
-                              ))}
+                              {b.items.map((h, idx) => {
+                                const lines = chartLines();
+                                return <Line key={h.id} type="monotone" dataKey={h.id} name={h.name} stroke={lines[idx % lines.length]} strokeWidth={2} dot={false} connectNulls />;
+                              })}
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
@@ -185,7 +180,7 @@ export default function Stats({ habits, done, groups }) {
                         <div key={h.id}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                             <span style={{ fontSize: 13, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "75%" }}>{h.name}{isWeekly(h) ? ` · ${h.target_per_week}×` : ""}</span>
-                            <span style={{ fontSize: 12, color: C.gold, fontVariantNumeric: "tabular-nums" }}>{adherence(h)}%</span>
+                            <span style={{ fontSize: 12, color: C.accent, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{adherence(h)}%</span>
                           </div>
                           <HeatGrid days={days} period={period} today={today} valueFor={(d) => (isDone(h.id, ymd(d)) ? 1 : 0)} />
                         </div>
@@ -214,8 +209,10 @@ function HeatGrid({ days, period, today, valueFor }) {
 }
 
 function Cell({ v, size, isT, label }) {
-  const bg = v > 0 ? `rgba(${GOLD_RGB},${(0.3 + 0.7 * Math.min(1, v)).toFixed(2)})` : C.surface2;
-  return <div title={label} style={{ width: size, height: size, flexShrink: 0, borderRadius: size > 16 ? 4 : 3, boxSizing: "border-box", background: bg, border: isT ? `1.5px solid ${v > 0 ? C.goldHot : C.muted}` : `1px solid ${C.line}` }} />;
+  /* Тепловая карта задаёт прозрачность от заполненности дня, поэтому
+     нужен разложенный акцент, а не var() — см. paint() в theme.js. */
+  const bg = v > 0 ? `rgba(${paint().accentRGB},${(0.3 + 0.7 * Math.min(1, v)).toFixed(2)})` : C.surface2;
+  return <div title={label} style={{ width: size, height: size, flexShrink: 0, borderRadius: size > 16 ? 4 : 3, boxSizing: "border-box", background: bg, border: isT ? `1.5px solid ${v > 0 ? C.accentHot : C.muted}` : `1px solid ${C.line}` }} />;
 }
 
 function card() { return { background: C.surface, border: `1px solid ${C.line}`, borderRadius: 16, padding: 14 }; }

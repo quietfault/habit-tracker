@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { EventLine } from "./events.jsx";
+import { C } from "./theme";
 
-const C = {
-  surface: "#1C1C24", line: "#2E2E3A", text: "#EDEDF2", muted: "#8C8C9C", faint: "#3A3A48",
-};
 const MO = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
 const dayKey = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
 const dayLabel = (iso) => {
@@ -42,7 +40,7 @@ export default function Feed() {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {groups.map((g) => (
         <div key={g.key}>
-          <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: C.muted, marginBottom: 10 }}>{g.label}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", fontFamily: C.mono, letterSpacing: C.trackingCaps, color: C.muted, marginBottom: 10 }}>{g.label}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, borderRadius: 16, background: C.surface, border: `1px solid ${C.line}` }}>
             {g.items.map((e) => <EventLine key={e.id} e={e} showGoalName />)}
           </div>

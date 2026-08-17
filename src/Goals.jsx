@@ -5,12 +5,8 @@ import {
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import { EventLine } from "./events.jsx";
+import { C } from "./theme";
 
-const C = {
-  bg: "#131319", surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
-  text: "#EDEDF2", muted: "#8C8C9C", faint: "#3A3A48", gold: "#F5B544", goldHot: "#FFCB5C",
-  danger: "#E0656B",
-};
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const TODAY = ymd(new Date());
@@ -28,23 +24,23 @@ const fmtDate = (s) => {
 };
 
 function StatusIcon({ status, size = 20 }) {
-  if (status === "done") return <CheckCircle2 size={size} color={C.gold} fill={C.gold} fillOpacity={0.18} />;
-  if (status === "in_progress") return <CircleDot size={size} color={C.goldHot} />;
-  return <Circle size={size} color={C.faint} />;
+  if (status === "done") return <CheckCircle2 size={size} style={{ color: C.accent }} fill="currentColor" fillOpacity={0.18} />;
+  if (status === "in_progress") return <CircleDot size={size} style={{ color: C.accentHot }} />;
+  return <Circle size={size} style={{ color: C.faint }} />;
 }
 
 function ProgressChip({ habit, progress }) {
   const good = progress?.good;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 999, fontSize: 11.5, background: good ? C.gold + "1F" : C.surface2, border: `1px solid ${good ? C.gold + "55" : C.line}`, color: C.text, maxWidth: "100%" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 999, fontSize: 11.5, background: good ? C.accentSoft : C.surface2, border: `1px solid ${good ? C.accentEdge : C.line}`, color: C.text, maxWidth: "100%" }}>
       <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 130 }}>{habit.name}</span>
-      <span style={{ color: good ? C.goldHot : C.muted, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{progress?.label}</span>
+      <span style={{ color: good ? C.accentHot : C.muted, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{progress?.label}</span>
     </span>
   );
 }
 
 function emptyMarkStyle() {
-  return { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, color: C.gold, background: C.gold + "1F", padding: "1px 8px", borderRadius: 999 };
+  return { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, color: C.accent, background: C.accentSoft, padding: "1px 8px", borderRadius: 999 };
 }
 
 function ValuePicker({ values, isLinked, onToggle }) {
@@ -54,7 +50,7 @@ function ValuePicker({ values, isLinked, onToggle }) {
       {values.map((v) => {
         const on = isLinked(v.id);
         return (
-          <button key={v.id} onClick={() => onToggle(v.id)} style={{ padding: "4px 9px", borderRadius: 999, fontSize: 12, cursor: "pointer", border: `1px solid ${on ? C.gold : C.line}`, background: on ? C.gold + "22" : "transparent", color: on ? C.goldHot : C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <button key={v.id} onClick={() => onToggle(v.id)} style={{ padding: "4px 9px", borderRadius: 999, fontSize: 12, cursor: "pointer", border: `1px solid ${on ? C.accent : C.line}`, background: on ? C.accentSoft : "transparent", color: on ? C.accentHot : C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}>
             {on ? <Gem size={11} /> : null}{v.name}
           </button>
         );
@@ -70,7 +66,7 @@ function HabitPicker({ habits, isLinked, onToggle }) {
       {habits.map((h) => {
         const on = isLinked(h.id);
         return (
-          <button key={h.id} onClick={() => onToggle(h.id)} style={{ padding: "4px 9px", borderRadius: 999, fontSize: 12, cursor: "pointer", border: `1px solid ${on ? C.gold : C.line}`, background: on ? C.gold + "22" : "transparent", color: on ? C.goldHot : C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <button key={h.id} onClick={() => onToggle(h.id)} style={{ padding: "4px 9px", borderRadius: 999, fontSize: 12, cursor: "pointer", border: `1px solid ${on ? C.accent : C.line}`, background: on ? C.accentSoft : "transparent", color: on ? C.accentHot : C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}>
             {on ? <Link2 size={11} /> : null}{h.name}
           </button>
         );
@@ -292,7 +288,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
         {hasGroups && <button onClick={toggleAll} style={iconBtn(C.muted)}>{anyCollapsed ? "Развернуть всё" : "Свернуть всё"}</button>}
-        <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.gold : C.muted)}>
+        <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.accent : C.muted)}>
           {editing ? <X size={13} /> : <Pencil size={13} />} {editing ? "Готово" : "Править"}
         </button>
       </div>
@@ -313,7 +309,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
           <div key={g.id} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 2px", marginBottom: 8 }}>
               <button onClick={() => toggleCollapse(g.id)} style={{ display: "flex", alignItems: "center", gap: 4, background: "transparent", border: "none", color: C.text, cursor: "pointer", padding: 0, flex: 1, minWidth: 0 }}>
-                {isCol ? <ChevronRight size={16} color={C.muted} /> : <ChevronDown size={16} color={C.muted} />}
+                {isCol ? <ChevronRight size={16} style={{ color: C.muted }} /> : <ChevronDown size={16} style={{ color: C.muted }} />}
                 {editing ? (
                   <input className="ht-input" defaultValue={g.name} onBlur={(e) => renameGroup(g.id, e.target.value.trim() || g.name)} onClick={(e) => e.stopPropagation()}
                     style={{ flex: 1, background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "3px 8px", color: C.text, fontSize: 14, fontWeight: 600 }} />
@@ -321,7 +317,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
                   <span style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
                 )}
               </button>
-              <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{done}/{items.length}</span>
+              <span style={{ fontSize: 12, color: C.muted, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{done}/{items.length}</span>
               {editing && <button onClick={() => removeGroup(g.id)} title="Удалить группу" style={{ padding: 4, borderRadius: 8, color: C.danger, background: C.surface2, border: "none", cursor: "pointer" }}><Trash2 size={14} /></button>}
             </div>
             {!isCol && (
@@ -345,7 +341,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
 
       {goals.length > 0 && !adding && <button onClick={() => setAdding(true)} style={dashedBtn()}><Plus size={16} /> Новая цель</button>}
       {adding && (
-        <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: 8, borderRadius: 16, background: C.surface, border: `1px solid ${C.gold}55` }}>
+        <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: 8, borderRadius: 16, background: C.surface, border: `1px solid ${C.accentEdge}` }}>
           <input autoFocus className="ht-input" value={draftName} onChange={(e) => setDraftName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addGoal(); if (e.key === "Escape") { setAdding(false); setDraftName(""); } }}
             placeholder="Название цели…" style={{ flex: 1, minWidth: 140, background: "transparent", border: "none", padding: "6px 8px", fontSize: 14, color: C.text, outline: "none" }} />
@@ -356,7 +352,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
               {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           )}
-          <button onClick={addGoal} style={{ padding: "6px 12px", borderRadius: 10, fontSize: 14, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>Добавить</button>
+          <button onClick={addGoal} style={{ padding: "6px 12px", borderRadius: 10, fontSize: 14, fontWeight: 500, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }}>Добавить</button>
           <button onClick={() => { setAdding(false); setDraftName(""); }} aria-label="Отмена" style={{ padding: 6, borderRadius: 10, color: C.muted, background: "transparent", border: "none", cursor: "pointer" }}><X size={16} /></button>
         </div>
       )}
@@ -377,7 +373,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
 
       {modal && (
         <div onClick={() => { const cb = modal.onResolve; setModal(null); cb(null); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 100 }}>
+          style={{ position: "fixed", inset: 0, background: C.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 100 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 360, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 16, padding: 16 }}>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>{modal.title}</div>
             <input autoFocus className="ht-input" value={reasonText} onChange={(e) => setReasonText(e.target.value)}
@@ -390,7 +386,7 @@ export default function Goals({ habits = [], links = [], progressFor, linkHabit,
                   style={{ padding: "8px 14px", borderRadius: 10, fontSize: 13, background: "transparent", color: C.muted, border: `1px solid ${C.line}`, cursor: "pointer" }}>Пропустить</button>
               )}
               <button onClick={() => { const cb = modal.onResolve; setModal(null); cb(reasonText.trim()); }}
-                style={{ padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", background: modal.destructive ? C.danger : C.gold, color: modal.destructive ? "#fff" : "#1A1208" }}>{modal.confirmLabel}</button>
+                style={{ padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", background: modal.destructive ? C.danger : C.accent, color: C.onFill }}>{modal.confirmLabel}</button>
             </div>
           </div>
         </div>
@@ -422,7 +418,7 @@ function GoalRow({
   const valueBare = goalValueLinks.length === 0;
 
   return (
-    <div style={{ borderRadius: 16, background: C.surface, border: `1px solid ${goal.status === "done" ? C.gold + "55" : C.line}`, overflow: "hidden" }}>
+    <div style={{ borderRadius: 16, background: C.surface, border: `1px solid ${goal.status === "done" ? C.accentEdge : C.line}`, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: editing ? "stretch" : "center", gap: 12, padding: 12 }}>
         <button onClick={() => cycleGoalStatus(goal)} aria-label="Статус цели" style={{ flexShrink: 0, background: "transparent", border: "none", cursor: "pointer", padding: 0, marginTop: editing ? 4 : 0 }}>
           <StatusIcon status={goal.status} />
@@ -457,7 +453,7 @@ function GoalRow({
           <div style={{ minWidth: 0, flex: 1, cursor: hasStages ? "pointer" : "default" }} onClick={() => hasStages && toggleExpand(goal.id)}>
             <div style={{ fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{goal.name}</div>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 3 }}>
-              <span style={{ fontSize: 12, color: goal.status === "done" ? C.goldHot : C.muted }}>{STATUS_LABEL[goal.status]}</span>
+              <span style={{ fontSize: 12, color: goal.status === "done" ? C.accentHot : C.muted }}>{STATUS_LABEL[goal.status]}</span>
               {goal.target_date && (
                 <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 12, color: overdue ? C.danger : C.muted }}>
                   <Calendar size={11} /> {fmtDate(goal.target_date)}
@@ -487,7 +483,7 @@ function GoalRow({
       {/* каким ценностям служит цель (view mode) */}
       {!editing && goalValues.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 12px 12px 48px", alignItems: "center" }}>
-          <Gem size={12} color={C.muted} />
+          <Gem size={12} style={{ color: C.muted }} />
           {goalValues.map((v) => (
             <span key={v.id} style={{ display: "inline-flex", alignItems: "center", padding: "3px 8px", borderRadius: 999, fontSize: 11.5, background: C.surface2, border: `1px solid ${C.line}`, color: C.text }}>{v.name}</span>
           ))}
@@ -514,10 +510,10 @@ function GoalRow({
       })()}
 
       {showPrompt && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", background: C.gold + "18", borderTop: `1px solid ${C.gold}33` }}>
-          <span style={{ fontSize: 12.5, color: C.goldHot }}>Все этапы выполнены — цель тоже готова?</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", background: C.accentSoft, borderTop: `1px solid ${C.accentEdge}` }}>
+          <span style={{ fontSize: 12.5, color: C.accentHot }}>Все этапы выполнены — цель тоже готова?</span>
           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-            <button onClick={() => changeGoalStatus(goal, "done")} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>Да, готово</button>
+            <button onClick={() => changeGoalStatus(goal, "done")} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 500, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }}>Да, готово</button>
             <button onClick={() => setDismissed((p) => new Set(p).add(goal.id))} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "transparent", color: C.muted, border: `1px solid ${C.line}`, cursor: "pointer" }}>Ещё нет</button>
           </div>
         </div>
@@ -568,8 +564,8 @@ function GoalRow({
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
               <input autoFocus className="ht-input" value={stageDraft} onChange={(e) => setStageDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addStage(goal.id); if (e.key === "Escape") { setAddingStageFor(null); setStageDraft(""); } }}
-                placeholder="Название этапа…" style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.gold}55`, borderRadius: 8, padding: "5px 8px", color: C.text, fontSize: 13 }} />
-              <button onClick={() => addStage(goal.id)} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>+</button>
+                placeholder="Название этапа…" style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.accentEdge}`, borderRadius: 8, padding: "5px 8px", color: C.text, fontSize: 13 }} />
+              <button onClick={() => addStage(goal.id)} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }}>+</button>
               <button onClick={() => { setAddingStageFor(null); setStageDraft(""); }} aria-label="Отмена" style={{ padding: 5, borderRadius: 8, color: C.muted, background: "transparent", border: "none", cursor: "pointer" }}><X size={14} /></button>
             </div>
           ) : (
@@ -585,6 +581,6 @@ function GoalRow({
 
 function iconBtn(color) { return { display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, padding: "5px 8px", borderRadius: 8, color, background: "transparent", border: "none", cursor: "pointer" }; }
 function miniBtn(disabled) { return { padding: 7, borderRadius: 9, color: disabled ? C.faint : C.text, background: C.surface2, border: `1px solid ${C.line}`, cursor: disabled ? "default" : "pointer", display: "flex", opacity: disabled ? 0.5 : 1 }; }
-function primaryBtn() { return { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 12, fontWeight: 500, fontSize: 14, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }; }
+function primaryBtn() { return { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 12, fontWeight: 500, fontSize: 14, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }; }
 function dashedBtn() { return { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: 16, fontSize: 14, fontWeight: 500, color: C.muted, border: `1px dashed ${C.line}`, background: "transparent", cursor: "pointer" }; }
 function dateInputStyle() { return { background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "4px 6px", fontSize: 12, color: C.text, colorScheme: "dark" }; }

@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
+import { C } from "./theme";
 
-const C = {
-  bg: "#131319",
-  surface: "#1C1C24",
-  line: "#2E2E3A",
-  text: "#EDEDF2",
-  muted: "#8C8C9C",
-  faint: "#3A3A48",
-  gold: "#F5B544",
-  danger: "#E0656B",
-};
 
 export default function Auth() {
   const [mode, setMode] = useState("signin"); // signin | signup
@@ -85,8 +76,8 @@ export default function Auth() {
             padding: "11px 0",
             borderRadius: 12,
             border: "none",
-            background: C.gold,
-            color: "#1A1208",
+            background: C.accent,
+            color: C.onFill,
             fontWeight: 600,
             fontSize: 15,
             cursor: busy ? "default" : "pointer",

@@ -4,12 +4,8 @@ import {
   Circle, CheckCircle2, ArrowUp, ArrowDown, Calendar, Inbox, Eye, EyeOff, Square, CheckSquare,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { C } from "./theme";
 
-const C = {
-  bg: "#131319", surface: "#1C1C24", surface2: "#23232E", line: "#2E2E3A",
-  text: "#EDEDF2", muted: "#8C8C9C", faint: "#3A3A48", gold: "#F5B544", goldHot: "#FFCB5C",
-  danger: "#E0656B",
-};
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const TODAY = ymd(new Date());
@@ -21,9 +17,9 @@ const fmtDate = (s) => { if (!s) return null; const d = new Date(s + "T00:00:00"
 // секции: инбокс + 4 квадранта
 const SECTIONS = [
   { key: "inbox", name: "Не разобрано", accent: C.muted, match: (t) => !t.triaged },
-  { key: "q1", name: "Срочно и важно", accent: "#E0656B", match: (t) => t.triaged && t.important && t.urgent },
-  { key: "q2", name: "Важно, не срочно", accent: C.gold, match: (t) => t.triaged && t.important && !t.urgent },
-  { key: "q3", name: "Срочно, не важно", accent: "#5AA9E6", match: (t) => t.triaged && !t.important && t.urgent },
+  { key: "q1", name: "Срочно и важно", accent: C.danger, match: (t) => t.triaged && t.important && t.urgent },
+  { key: "q2", name: "Важно, не срочно", accent: C.accent, match: (t) => t.triaged && t.important && !t.urgent },
+  { key: "q3", name: "Срочно, не важно", accent: C.info, match: (t) => t.triaged && !t.important && t.urgent },
   { key: "q4", name: "Не срочно, не важно", accent: C.faint, match: (t) => t.triaged && !t.important && !t.urgent },
 ];
 
@@ -155,12 +151,12 @@ export default function Tasks() {
     <div>
       {/* быстрый инбокс */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, borderRadius: 14, background: C.surface, border: `1px solid ${C.line}`, marginBottom: 16 }}>
-        <Inbox size={16} color={C.muted} style={{ flexShrink: 0, marginLeft: 4 }} />
+        <Inbox size={16} style={{ color: C.muted, flexShrink: 0, marginLeft: 4 }} />
         <input className="ht-input" value={quick} onChange={(e) => setQuick(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") quickAdd(); }}
           placeholder="+ быстро записать…" style={{ flex: 1, background: "transparent", border: "none", padding: "6px 4px", fontSize: 14, color: C.text, outline: "none" }} />
         {quick.trim() && (
-          <button onClick={quickAdd} style={{ padding: "6px 12px", borderRadius: 10, fontSize: 14, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>В инбокс</button>
+          <button onClick={quickAdd} style={{ padding: "6px 12px", borderRadius: 10, fontSize: 14, fontWeight: 500, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }}>В инбокс</button>
         )}
       </div>
 
@@ -168,11 +164,11 @@ export default function Tasks() {
         <span style={{ fontSize: 12, color: C.muted }}>{inboxCount > 0 ? `${inboxCount} не разобрано` : "инбокс пуст"}</span>
         <div style={{ display: "flex", gap: 4 }}>
           {doneTasks.length > 0 && (
-            <button onClick={() => { setShowDone((v) => !v); if (selecting) exitSelect(); }} style={iconBtn(showDone ? C.gold : C.muted)}>
+            <button onClick={() => { setShowDone((v) => !v); if (selecting) exitSelect(); }} style={iconBtn(showDone ? C.accent : C.muted)}>
               {showDone ? <EyeOff size={13} /> : <Eye size={13} />} {showDone ? "Скрыть готовые" : `Готовые (${doneTasks.length})`}
             </button>
           )}
-          <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.gold : C.muted)}>
+          <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.accent : C.muted)}>
             {editing ? <X size={13} /> : <Pencil size={13} />} {editing ? "Готово" : "Править"}
           </button>
         </div>
@@ -184,7 +180,7 @@ export default function Tasks() {
             <>
               <button onClick={selectAllDone} style={{ fontSize: 12.5, color: C.text, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Выбрать все</button>
               <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={clearSelected} disabled={selected.size === 0} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: selected.size ? "pointer" : "default", border: "none", background: selected.size ? C.danger : C.surface2, color: selected.size ? "#fff" : C.faint }}>Удалить{selected.size ? ` (${selected.size})` : ""}</button>
+                <button onClick={clearSelected} disabled={selected.size === 0} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: selected.size ? "pointer" : "default", border: "none", background: selected.size ? C.danger : C.surface2, color: selected.size ? C.onFill : C.faint }}>Удалить{selected.size ? ` (${selected.size})` : ""}</button>
                 <button onClick={exitSelect} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12.5, background: "transparent", color: C.muted, border: `1px solid ${C.line}`, cursor: "pointer" }}>Отмена</button>
               </div>
             </>
@@ -214,10 +210,10 @@ export default function Tasks() {
         return (
           <div key={sec.key} style={{ marginBottom: 14 }}>
             <button onClick={() => toggleCollapse(sec.key)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: "4px 2px", marginBottom: 8 }}>
-              {isCol ? <ChevronRight size={16} color={C.muted} /> : <ChevronDown size={16} color={C.muted} />}
+              {isCol ? <ChevronRight size={16} style={{ color: C.muted }} /> : <ChevronDown size={16} style={{ color: C.muted }} />}
               <span style={{ width: 8, height: 8, borderRadius: 999, background: sec.accent, flexShrink: 0 }} />
               <span style={{ fontWeight: 600, fontSize: 14, color: C.text, flex: 1, textAlign: "left" }}>{sec.name}</span>
-              <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{openCount}/{all.length}</span>
+              <span style={{ fontSize: 12, color: C.muted, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{openCount}/{all.length}</span>
             </button>
             {!isCol && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -250,7 +246,7 @@ function TaskRow({
     <div style={{ borderRadius: 14, background: C.surface, border: `1px solid ${task.done ? C.line : C.line}`, overflow: "hidden", opacity: task.done ? 0.6 : 1 }}>
       <div style={{ display: "flex", alignItems: editing ? "stretch" : "center", gap: 10, padding: "10px 12px" }}>
         <button onClick={() => toggleDone(task)} aria-label="Готово" style={{ flexShrink: 0, background: "transparent", border: "none", cursor: "pointer", padding: 0, marginTop: editing ? 4 : 0 }}>
-          {task.done ? <CheckCircle2 size={20} color={C.gold} fill={C.gold} fillOpacity={0.18} /> : <Circle size={20} color={C.faint} />}
+          {task.done ? <CheckCircle2 size={20} style={{ color: C.accent }} fill="currentColor" fillOpacity={0.18} /> : <Circle size={20} style={{ color: C.faint }} />}
         </button>
 
         {editing ? (
@@ -278,7 +274,7 @@ function TaskRow({
                     <Calendar size={11} /> {fmtDate(task.due_date)}
                   </span>
                 )}
-                {hasSubs && <span style={{ fontSize: 12, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{subs.filter((s) => s.done).length}/{subs.length}</span>}
+                {hasSubs && <span style={{ fontSize: 12, color: C.muted, fontFamily: C.mono, fontVariantNumeric: "tabular-nums" }}>{subs.filter((s) => s.done).length}/{subs.length}</span>}
               </div>
             )}
           </div>
@@ -301,7 +297,7 @@ function TaskRow({
           {visibleSubs.map((s, i) => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button onClick={() => toggleSub(s)} aria-label="Готово" style={{ flexShrink: 0, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
-                {s.done ? <CheckCircle2 size={16} color={C.gold} fill={C.gold} fillOpacity={0.18} /> : <Circle size={16} color={C.faint} />}
+                {s.done ? <CheckCircle2 size={16} style={{ color: C.accent }} fill="currentColor" fillOpacity={0.18} /> : <Circle size={16} style={{ color: C.faint }} />}
               </button>
               {editing ? (
                 <>
@@ -322,8 +318,8 @@ function TaskRow({
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
               <input autoFocus className="ht-input" value={subDraft} onChange={(e) => setSubDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addSub(task.id); if (e.key === "Escape") { setAddingSubFor(null); setSubDraft(""); } }}
-                placeholder="Подзадача…" style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.gold}55`, borderRadius: 8, padding: "4px 8px", color: C.text, fontSize: 13 }} />
-              <button onClick={() => addSub(task.id)} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, background: C.gold, color: "#1A1208", border: "none", cursor: "pointer" }}>+</button>
+                placeholder="Подзадача…" style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.accentEdge}`, borderRadius: 8, padding: "4px 8px", color: C.text, fontSize: 13 }} />
+              <button onClick={() => addSub(task.id)} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, background: C.accent, color: C.onFill, border: "none", cursor: "pointer" }}>+</button>
               <button onClick={() => { setAddingSubFor(null); setSubDraft(""); }} aria-label="Отмена" style={{ padding: 5, borderRadius: 8, color: C.muted, background: "transparent", border: "none", cursor: "pointer" }}><X size={14} /></button>
             </div>
           ) : (
@@ -339,5 +335,5 @@ function TaskRow({
 
 function iconBtn(color) { return { display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, padding: "5px 8px", borderRadius: 8, color, background: "transparent", border: "none", cursor: "pointer" }; }
 function miniBtn(disabled) { return { padding: 6, borderRadius: 8, color: disabled ? C.faint : C.text, background: C.surface2, border: `1px solid ${C.line}`, cursor: disabled ? "default" : "pointer", display: "flex", opacity: disabled ? 0.5 : 1 }; }
-function flagBtn(on) { return { padding: "5px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer", border: `1px solid ${on ? C.gold : C.line}`, background: on ? C.gold + "22" : "transparent", color: on ? C.goldHot : C.muted }; }
+function flagBtn(on) { return { padding: "5px 10px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer", border: `1px solid ${on ? C.accent : C.line}`, background: on ? C.accentSoft : "transparent", color: on ? C.accentHot : C.muted }; }
 function dateInputStyle() { return { background: C.surface2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "4px 6px", fontSize: 12, color: C.text, colorScheme: "dark" }; }
