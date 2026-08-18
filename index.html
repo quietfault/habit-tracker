@@ -4,15 +4,33 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Трекер привычек</title>
+
+    <!-- Знак «Пересборка» — основной. Фавикон относится к
+         представительским местам, туда «Разлом» не ставится
+         (BRANDBOOK.md §1 и §3). Файлы взяты из brand/logo/primary
+         как есть: пересобирать их запрещено. -->
+    <link rel="icon" href="./favicon.ico" sizes="48x48" />
+    <link rel="icon" href="./favicon-32.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+
     <style>
+      /* Единственное место, где цвет и шрифт записаны литералом,
+         а не токеном. Причина: этот стиль работает до того, как
+         загрузится бандл с tokens.css и Inter — он и существует
+         ровно затем, чтобы не было белой вспышки и скачка шрифта.
+         Значения обязаны совпадать с --bg и хвостом --font-sans. */
       html, body, #root { height: 100%; margin: 0; }
       body {
-        background: #131319;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #0d1117;
+        color-scheme: dark;
+        font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui,
+                     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                     Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-BiqdGHn5.js"></script>
+    <script type="module" crossorigin src="./assets/index-iEgvdZKq.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CHFD9jns.css">
   </head>
   <body>
     <div id="root"></div>
