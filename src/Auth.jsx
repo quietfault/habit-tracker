@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
 import { C } from "./theme";
+import Mark from "./Mark.jsx";
 
 
 export default function Auth() {
@@ -36,6 +37,10 @@ export default function Auth() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 340 }}>
+        <div style={{ marginBottom: 18, marginLeft: -8 }}>
+          <Mark size={48} />
+        </div>
+
         <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>
           Трекер привычек
         </div>

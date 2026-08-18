@@ -7,6 +7,7 @@ import Tasks from "./Tasks.jsx";
 import Feed from "./Feed.jsx";
 import Values from "./Values.jsx";
 import { C } from "./theme";
+import Mark from "./Mark.jsx";
 
 
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -251,7 +252,10 @@ export default function HabitTracker({ session }) {
 
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 500, textTransform: "uppercase", fontFamily: C.mono, letterSpacing: C.trackingCaps, color: C.muted }}>{headerDate}</div>
+          <div style={{ display: "flex", alignItems: "center", marginLeft: -4 }}>
+            <Mark size={16} />
+            <div style={{ fontSize: 12, fontWeight: 500, textTransform: "uppercase", fontFamily: C.mono, letterSpacing: C.trackingCaps, color: C.muted }}>{headerDate}</div>
+          </div>
           <div style={{ display: "flex", gap: 4 }}>
             {view === "today" && (
               <button onClick={() => setEditing((e) => !e)} style={iconBtn(editing ? C.accent : C.muted)}>
